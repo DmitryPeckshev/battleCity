@@ -1,0 +1,81 @@
+body{
+	background: #fff;
+}
+#mainContainer {
+	width: 1280px;
+	height: 720px;
+	margin: auto;
+}
+h1 {
+	display:block;
+	width:100%;
+	font-family:"Lucida Sans";
+	font-style: normal;
+	font-size: 28px;
+	text-align: center;
+	color: #1C1C1C;
+	text-shadow: 0px -1px 3px #ccc;
+}
+canvas {
+	width: 1280px;
+	height: 720px;
+	margin: auto;
+	padding: 0;
+	position: relative;
+	float:left;
+	border: 1px #000 solid;
+}
+
+#infoContainer {
+	width: 180px;
+	height: 640px;
+	margin: auto;
+	border: 1px red solid;
+	box-sizing: border-box;
+	position: relative;
+	float:left;
+}
+
+#fieldContainer div{
+	width: 40px;
+	height: 40px;
+	margin: 0;
+	border: 1px green solid;
+	box-sizing: border-box;
+	float:left;
+}
+
+button {
+	display: block;
+	position:absolute;
+	z-index: 5;
+	top: 0;
+	left: 0;
+}
+
+
+
+
+.tank {
+	background: #000;
+}
+#mytank {
+	width: 40px;
+	height: 40px;
+	position: absolute;
+	top: 120px;
+	left: 160px;
+	/*transition: top 0.4s;*/
+}
+.wall {
+	background: orange;
+}
+.bullet {
+	width: 40px;
+	height: 40px;
+	position: absolute;
+	top: 0px;
+	left: 0px;
+	background: url(img/Cannon_Ball.png) no-repeat;
+	background-size: contain;
+}

@@ -4,10 +4,20 @@ var canvas = canvasElement.getContext('2d');
 
 var fieldWidth = 920;
 var fieldHeight = 640;
+var infoWidth = 200;
+var infoHeight = 640;
 var cellSize = 40;
-var currentLevel;
+var currentLevel = 0;
+var countEnemies = 0;
+var createEnemy = false;
+var enemyCreateDelay = true;
 
 var playerShots = [];
+var allEnemies = [];
+var enemyShots = [];
+
+var myKills = 0;
+var myLives = 999;
 
 var FPS = 30;
 setInterval(function() {
@@ -27,6 +37,10 @@ var enemyImg = new Image();
 enemyImg.addEventListener("load", function() {},false);
 enemyImg.src = 'enemy1.png';
 
+var explosionImg = new Image();
+explosionImg.addEventListener("load", function() {},false);
+explosionImg.src = 'explosion.png';
+
 var myTank = {
 	color: "#00A",
 	x: 320,
@@ -38,6 +52,8 @@ var myTank = {
 	step: 0,
 	shootDelay: 15,
 	shootTimer: 0,
+	number: 0,
+	nearEnemy: 0,
 	draw: function() {
 
 		canvas.save();
@@ -82,13 +98,55 @@ function update() {
 	playerShots.forEach(function(bullet) {
 		bullet.update();
 	});
+
+	
+	if (allEnemies.length < 4 ) { //занести врага в массив
+		var respawnBusy = false;
+		allEnemies.forEach(function(enemy) {
+			if(enemy.y < cellSize) {
+				respawnBusy = true;
+			}
+		});
+		if(enemyCreateDelay){
+			setTimeout(function(){createEnemy = true },3000)
+			enemyCreateDelay = false;
+		}
+		if(respawnBusy == false && createEnemy) {
+			allEnemies.push(Enemy({number: countEnemies+=1}))
+			createEnemy = false;
+			enemyCreateDelay = true;
+		}		
+	}
+	
+	allEnemies.forEach(function(enemy) {
+		AI(enemy);
+		enemy.update();
+		moveRules(enemy);
+		//console.log(enemy.number, enemy.x, enemy.y);
+	});
+	
+	enemyShots.forEach(function(bullet) {
+		bullet.update();
+	});
+	
+	enemyBulletsCollision();
 	
 	breakWall(currentLevel, playerShots);
+	breakWall(currentLevel, enemyShots);
 	
 	playerShots = playerShots.filter(function(shot) {
 		return shot.active;
 	});
-
+	
+	enemyShots = enemyShots.filter(function(shot) {
+		return shot.active;
+	});
+	
+	killEnemy();
+	
+	allEnemies = allEnemies.filter(function(enemy) {
+		return enemy.active;
+	});
 }
 
 
@@ -103,7 +161,15 @@ function draw() {
 		bullet.draw();
 	});
 	
-
+	allEnemies.forEach(function(enemy) {
+		enemy.draw();
+	});
+	
+	enemyShots.forEach(function(bullet) {
+		bullet.draw();
+	});
+	
+	createInfo();
 }
 
 function randomInt(minRandom,maxRandom) {
@@ -111,31 +177,41 @@ function randomInt(minRandom,maxRandom) {
 }
 
 function controls() {
-
-	if(myTank.step <= 0 && myTank.x%(cellSize/2)==0 && myTank.y%(cellSize/2)==0){ 
+	//myTankCollide();
+	if(myTank.step <= 0 && myTank.x%(cellSize/2)==0 && myTank.y%(cellSize/2)==0) { 
 		if (keydown.a && !(keydown.d || keydown.w || keydown.s)) {
-			myTank.x -= myTank.speed;
 			myTank.direction = 'left';
-			myTank.step = cellSize/10;
+			myTankCollide('a');
+			if(myTank.nearEnemy != 1) {
+				myTank.x -= myTank.speed;
+				myTank.step = cellSize/10;
+			}
 		}
 		if (keydown.d && !(keydown.a || keydown.w || keydown.s)) {
-			myTank.x += myTank.speed;
 			myTank.direction = 'right';
-			myTank.step = cellSize/10;
+			myTankCollide('d');
+			if(myTank.nearEnemy != 2) {
+				myTank.x += myTank.speed;
+				myTank.step = cellSize/10;
+			}
 		}
 		if (keydown.w && !(keydown.d || keydown.a || keydown.s)) {
-    		myTank.y -= myTank.speed;
     		myTank.direction = 'up';
-    		myTank.step = cellSize/10;
+    		myTankCollide('w');
+    		if(myTank.nearEnemy != 3) {
+    			myTank.y -= myTank.speed;
+    			myTank.step = cellSize/10;
+    		}
 		}
 		if (keydown.s && !(keydown.d || keydown.w || keydown.a)) {
-			myTank.y += myTank.speed;
 			myTank.direction = 'down';
-			myTank.step = cellSize/10;
+			myTankCollide('s');
+			if(myTank.nearEnemy != 4) {
+				myTank.y += myTank.speed;
+				myTank.step = cellSize/10;
+			}
 		}
-
 	} else {
-		
 		if (myTank.direction == 'left') {
 			myTank.x -= myTank.speed;
 		}
@@ -156,43 +232,142 @@ function moveRules(tank) {
 	// запрет проезда за карту
 	if(tank.x > fieldWidth - tank.width) {
 		tank.x = fieldWidth - tank.width;
+		tank.go = 'barrier';
 	}
 	if(tank.x < 0) {
 		tank.x = 0;
+		tank.go = 'barrier';
 	}
 	if(tank.y > fieldHeight - tank.height) {
 		tank.y = fieldHeight - tank.height;
+		tank.go = 'barrier';
 	}
 	if(tank.y < 0) {
 		tank.y = 0;
+		tank.go = 'barrier';
 	}
 	
 	// запрет проезда через кирпичи
-	if (tank.direction == 'left' && tank.x % cellSize == cellSize - tank.speed) {
-		if(currentLevel[Math.ceil(tank.y/cellSize)][(tank.x+tank.speed)/cellSize-1]==1 || currentLevel[Math.floor(tank.y/cellSize)][(tank.x+tank.speed)/cellSize-1]==1 ) {
+	if (tank.direction == 'left' && tank.x % (cellSize/2) == (cellSize/2) - tank.speed && tank.y % (cellSize/2) == 0) {
+		if(currentLevel[Math.floor(tank.y/(cellSize/2))][(tank.x+tank.speed)/(cellSize/2)-1]==1 || currentLevel[Math.floor(tank.y/(cellSize/2))+1][(tank.x+tank.speed)/(cellSize/2)-1]==1 ) {
 			tank.x += tank.speed;
+			tank.go = 'barrier';
 		}
 	}
-	if (tank.direction == 'right' && tank.x % cellSize == tank.speed) {
-		if(currentLevel[Math.ceil(tank.y/cellSize)][(tank.x-tank.speed)/cellSize+1]==1 || currentLevel[Math.floor(tank.y/cellSize)][(tank.x-tank.speed)/cellSize+1]==1 ) {
+	if (tank.direction == 'right' && tank.x % (cellSize/2) == tank.speed && tank.y % (cellSize/2) == 0) {
+		if(currentLevel[Math.floor(tank.y/(cellSize/2))][(tank.x-tank.speed)/(cellSize/2)+2]==1 || currentLevel[Math.floor(tank.y/(cellSize/2))+1][(tank.x-tank.speed)/(cellSize/2)+2]==1 ) {
 			tank.x -= tank.speed;
+			tank.go = 'barrier';
 		}
 	}
-	if (tank.direction == 'up' && tank.y % cellSize == cellSize-tank.speed) {
-		if(currentLevel[(tank.y+tank.speed)/cellSize-1][Math.ceil(tank.x/cellSize)]==1 || currentLevel[(tank.y+tank.speed)/cellSize-1][Math.floor(tank.x/cellSize)]==1 ) {
+	if (tank.direction == 'up' && tank.y % (cellSize/2) == (cellSize/2)-tank.speed && tank.x % (cellSize/2) == 0) {
+		if(currentLevel[(tank.y+tank.speed)/(cellSize/2)-1][Math.floor(tank.x/(cellSize/2))]==1 || currentLevel[(tank.y+tank.speed)/(cellSize/2)-1][Math.floor(tank.x/(cellSize/2))+1]==1 ) {
 			tank.y += tank.speed;
+			tank.go = 'barrier';
 		}
 	}
-	if (tank.direction == 'down' && tank.y % cellSize == tank.speed) {
-		if(currentLevel[(tank.y-tank.speed)/cellSize+1][Math.ceil(tank.x/cellSize)]==1 || currentLevel[(tank.y-tank.speed)/cellSize+1][Math.floor(tank.x/cellSize)]==1 ) {
+	if (tank.direction == 'down' && tank.y % (cellSize/2) == tank.speed && tank.x % (cellSize/2) == 0) {
+		if(currentLevel[(tank.y-tank.speed)/(cellSize/2)+2][Math.floor(tank.x/(cellSize/2))]==1 || currentLevel[(tank.y-tank.speed)/(cellSize/2)+2][Math.floor(tank.x/(cellSize/2))+1]==1 ) {
 			tank.y -= tank.speed;
+			tank.go = 'barrier';
+			
 		}
 	}
+	if (tank.direction == 'left' && tank.x % (cellSize/2) == (cellSize/2) - tank.speed && tank.y % (cellSize/2) != 0) {
+		if(currentLevel[Math.floor(tank.y/(cellSize/2))][(tank.x+tank.speed)/(cellSize/2)-1]==1 || currentLevel[Math.floor(tank.y/(cellSize/2))+1][(tank.x+tank.speed)/(cellSize/2)-1]==1 
+			|| currentLevel[Math.floor(tank.y/(cellSize/2))+2][(tank.x+tank.speed)/(cellSize/2)-1]==1) {
+			tank.x += tank.speed;
+			tank.go = 'barrier';
+		}
+	}
+	if (tank.direction == 'right' && tank.x % (cellSize/2) == tank.speed && tank.y % (cellSize/2) != 0) {
+		if(currentLevel[Math.floor(tank.y/(cellSize/2))][(tank.x-tank.speed)/(cellSize/2)+2]==1 || currentLevel[Math.floor(tank.y/(cellSize/2))+1][(tank.x-tank.speed)/(cellSize/2)+2]==1 
+			|| currentLevel[Math.floor(tank.y/(cellSize/2))+2][(tank.x-tank.speed)/(cellSize/2)+2]==1 ) {
+			tank.x -= tank.speed;
+			tank.go = 'barrier';
+		}
+	}
+	if (tank.direction == 'up' && tank.y % (cellSize/2) == (cellSize/2)-tank.speed && tank.x % (cellSize/2) != 0) {
+		if(currentLevel[(tank.y+tank.speed)/(cellSize/2)-1][Math.floor(tank.x/(cellSize/2))]==1 || currentLevel[(tank.y+tank.speed)/(cellSize/2)-1][Math.floor(tank.x/(cellSize/2))+1]==1 
+			|| currentLevel[(tank.y+tank.speed)/(cellSize/2)-1][Math.floor(tank.x/(cellSize/2))+2]==1) {
+			tank.y += tank.speed;
+			tank.go = 'barrier';
+		}
+	}
+	if (tank.direction == 'down' && tank.y % (cellSize/2) == tank.speed && tank.x % (cellSize/2) != 0) {
+		if(currentLevel[(tank.y-tank.speed)/(cellSize/2)+2][Math.floor(tank.x/(cellSize/2))]==1 || currentLevel[(tank.y-tank.speed)/(cellSize/2)+2][Math.floor(tank.x/(cellSize/2))+1]==1 
+			|| currentLevel[(tank.y-tank.speed)/(cellSize/2)+2][Math.floor(tank.x/(cellSize/2))+2]==1) {
+			tank.y -= tank.speed;
+			tank.go = 'barrier';
+			
+		}
+	}
+	
+	// столкновения
+	
+	allEnemies.forEach(function(enemy) {
+		if(collide(tank, enemy) && tank.number != 0) {
+			//console.log(tank, enemy);
+			if(tank.number == enemy.number){return;}
+			if(tank.direction == 'left') {
+				tank.x += tank.speed; 
+				}
+			if(tank.direction == 'right') {
+				tank.x -= tank.speed; 
+				}
+			if(tank.direction == 'up') {
+				tank.y += tank.speed;
+				}
+			if(tank.direction == 'down') {
+				tank.y -= tank.speed;
+				}
+			tank.go = 'barrier';
+		}
+	});
+	if(tank.number == 0) {
+		allEnemies.forEach(function(enemy) {
+			if(collide(tank, enemy)) {
+				/*if(tank.direction == 'left') {
+					tank.x += tank.speed;
+				}
+				if(tank.direction == 'right') {
+					tank.x -= tank.speed; 
+				}
+				if(tank.direction == 'up') {
+					tank.y += tank.speed;
+				}
+				if(tank.direction == 'down') {
+					tank.y -= tank.speed;
+				}*/
+				/*/if(tank.x % cellSize/2 == cellSize/10) {
+					tank.step = cellSize/10;
+				}else{
+					tank.step += 1; 
+				}*/
+				//console.log(tank.step);
+				if(enemy.direction == 'left' ) {
+					enemy.x += enemy.speed; 
+					}
+				if(enemy.direction == 'right' ) {
+					enemy.x -= enemy.speed; 
+					}
+				if(enemy.direction == 'up' ) {
+					enemy.y += enemy.speed;
+					}
+				if(enemy.direction == 'down' ) {
+					enemy.y -= enemy.speed;
+					}
+				//tank.go = 'barrier';
+			}
+		})
+	}
+	
 }
 
 
 function Bullet(I) {
 	I.active = true;
+	I.hit = false;
 	I.width = cellSize/10;
 	I.height = cellSize/10;
 	I.color = "#000";
@@ -202,8 +377,17 @@ function Bullet(I) {
 	};
 
 	I.draw = function() {
-		canvas.fillStyle = this.color;
-		canvas.fillRect(this.x, this.y, this.width, this.height);
+		if(this.active) {
+			canvas.save();
+			canvas.fillStyle = this.color;
+			canvas.fillRect(this.x, this.y, this.width, this.height);
+			canvas.restore();
+		} 
+		if(this.hit) {
+			canvas.save();
+			canvas.drawImage(explosionImg, this.x-cellSize/2, this.y-cellSize/2, cellSize, cellSize);
+			canvas.restore();
+		}
 	};
 	
 	I.update = function() {
@@ -224,7 +408,12 @@ function Bullet(I) {
  			I.y += I.speed;
 		}
 		
-		I.active = I.active && I.inBounds();
+		//I.active = I.active && I.inBounds();
+		
+		I.active = !I.hit;
+		I.hit = !I.inBounds();
+		
+		
 	};
 	
 	return I;
@@ -233,8 +422,8 @@ function Bullet(I) {
 
 myTank.shoot = function() {
 	var bulletPosition = shootPointFunc(myTank);
-	playerShots.push(Bullet({
-		speed: 6,
+	playerShots.push(Bullet({ 
+		speed: 8,
 		flyDirection: this.direction,
 		x: bulletPosition.x,
 		y: bulletPosition.y
@@ -272,6 +461,7 @@ function shootPointFunc(tank) {
 function Enemy(I) {
 	I = I || {};
 	I.active = true;
+	//I.number = 0,
 	I.color = "#A2B";
 	switch(randomInt(1,3)) {
 		case 1:
@@ -288,8 +478,15 @@ function Enemy(I) {
 	I.width = cellSize,
 	I.height = cellSize,
 	I.direction = 'down',
+	I.step = 0,
+	I.speed = 4,
+	I.fire = false,
+	I.shootDelay = 15,
+	I.shootTimer = 0,
+	I.go = 'down';
 	
 	I.draw = function() {
+		if(this.active){
 		canvas.save();
 		canvas.translate(this.x + this.width/2, this.y + this.height/2);
 		if(this.direction == 'left'){
@@ -307,21 +504,90 @@ function Enemy(I) {
 		canvas.translate(-this.x - this.width/2, -this.y - this.height/2);
 		canvas.drawImage(enemyImg, this.x, this.y);
 		canvas.restore();
+		}
 	};
 	
-	I.update = function() {
-		I.x += I.xVelocity;
-		I.y += I.yVelocity;
+	I.update = function() {		
+		
+		//if(this.step <= 0 && this.x%(cellSize/2)==0 && this.y%(cellSize/2)==0){ 
+		if (this.go == 'left') {
+			this.x -= this.speed;
+			this.direction = 'left';
+			this.step = cellSize/10;
+		}
+		if (this.go == 'right') {
+			this.x += this.speed;
+			this.direction = 'right';
+			this.step = cellSize/10;
+		}
+		if (this.go == 'up') {
+    		this.y -= this.speed;
+    		this.direction = 'up';
+    		this.step = cellSize/10;
+		}
+		if (this.go == 'down') {
+			this.y += this.speed;
+			this.direction = 'down';
+			this.step = cellSize/10;
+		}
 
-		I.xVelocity = 3 * Math.sin(I.age * Math.PI / 64);
-
-		I.age++;
-
-		I.active = I.active && I.inBounds();
+	/*} else {
+		
+		if (this.direction == 'left') {
+			this.x -= this.speed;
+		}
+		if (this.direction == 'right') {
+			this.x += this.speed;
+		}
+		if (this.direction == 'up') {
+    		this.y -= this.speed;
+		}
+		if (this.direction == 'down') {
+			this.y += this.speed;
+		}
+		this.step -= 1;
+	}*/
+		
+		
+		
+		
 	};
+	
+	I.shoot = function() {
+		var bulletPosition = shootPointFunc(this);
+		enemyShots.push(Bullet({ 
+			speed: 8,
+			flyDirection: this.direction,
+			x: bulletPosition.x,
+			y: bulletPosition.y
+		}));	
+	}
 	return I;
 }
 
+function AI(enemy) {
+	function changeDirection () {
+		switch(randomInt(0,3)) {
+		case 0: enemy.go = 'left'; break;
+		case 1: enemy.go = 'right'; break;
+		case 2: enemy.go = 'up'; break;
+		case 3: enemy.go = 'down'; break;
+		}
+	}
+	if (enemy.go == 'barrier') {
+		changeDirection ();
+	}else{
+		if(randomInt(0,39)==0) {
+			changeDirection ();
+		}
+	}
+	if (randomInt(0,30)==0 && enemy.shootTimer <= 0) {
+    	enemy.shoot();
+    	enemy.shootTimer = enemy.shootDelay;
+	} else {
+		enemy.shootTimer -= 1;
+	}
+}
 
 
 function collide(a, b) {
@@ -331,25 +597,57 @@ function collide(a, b) {
          a.y + a.height > b.y;
 }
 
+function myTankCollide(direction) {
+	myTank.nearEnemy = 0;
+	allEnemies.forEach(function(oneEnemy) {
+		if(myTank.x - myTank.width/4 < oneEnemy.x + oneEnemy.width &&
+		myTank.x > oneEnemy.x &&
+		myTank.y < oneEnemy.y + oneEnemy.height &&
+		myTank.y + myTank.height > oneEnemy.y && direction == 'a'){
+			myTank.nearEnemy = 1;
+			return;
+		}
+		if(myTank.x + myTank.width < oneEnemy.x + oneEnemy.width &&
+		myTank.x + myTank.width*5/4 > oneEnemy.x &&
+		myTank.y < oneEnemy.y + oneEnemy.height &&
+		myTank.y + myTank.height > oneEnemy.y && direction == 'd'){
+			myTank.nearEnemy = 2;
+			return;
+		}
+		if(myTank.x < oneEnemy.x + oneEnemy.width &&
+		myTank.x + myTank.width > oneEnemy.x &&
+		myTank.y - myTank.height/4 < oneEnemy.y + oneEnemy.height &&
+		myTank.y > oneEnemy.y && direction == 'w'){
+			myTank.nearEnemy = 3;
+			return;
+		}
+		if(myTank.x < oneEnemy.x + oneEnemy.width &&
+		myTank.x + myTank.width > oneEnemy.x &&
+		myTank.y + myTank.height < oneEnemy.y + oneEnemy.height &&
+		myTank.y + myTank.height*5/4 > oneEnemy.y && direction == 's'){
+			myTank.nearEnemy = 4;
+			return;
+		}	
+	});
+}
+
 function breakWall(levelNum, tankShots) {
 	for(var i = 0; i < levelNum.length;i++) {
 		for(var j = 0; j < levelNum[i].length;j++) {
 			if(levelNum[i][j]==1){
 				var wallPos = {
-					x: j*cellSize,
-					y: i*cellSize,
-					width: cellSize,
-					height: cellSize
+					x: j*cellSize/2,
+					y: i*cellSize/2,
+					width: cellSize/2,
+					height: cellSize/2
 				}
 				tankShots.forEach(
 					function(bullet) {
 						var tryBullet = bullet;
 						var hit = collide(tryBullet, wallPos);
-						
-						console.log(tryBullet.x,tryBullet.y,hit)
 						if(hit) {
 							levelNum[i][j] = 0;
-							bullet.active = false;
+							bullet.hit = true;
 						}
 						
 					}
@@ -359,67 +657,59 @@ function breakWall(levelNum, tankShots) {
 			
 		}
 	}
-
-
-	
 	
 }
 
+function killEnemy() {
+	allEnemies.forEach(function(enemy){
+		playerShots.forEach(function(bullet){
+			if(collide(enemy,bullet)){
+				enemy.active = false;
+				bullet.hit = true;
+				myKills++;
+				console.log('kills', myKills);
+			}
+		})
+	})
+}
 
-
-
-
-var level1 = [];
-	level1[0]  = [1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
-	level1[1]  = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
-	level1[2]  = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
-	level1[3]  = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
-	level1[4]  = [0,1,1,0,0,1,0,1,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0];
-	level1[5]  = [0,1,0,1,0,1,0,1,1,0,1,1,0,1,0,1,0,0,0,0,0,0,0];
-	level1[6]  = [0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,0,0,0,0,0,0];
-	level1[7]  = [0,1,0,1,0,1,0,1,0,0,0,1,0,1,1,1,0,0,0,0,0,0,0];
-	level1[8]  = [0,1,1,0,0,1,0,1,0,0,0,1,0,1,0,1,0,0,0,0,0,0,0];
-	level1[9]  = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
-	level1[10] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
-	level1[11] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
-	level1[12] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
-	level1[13] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
-	level1[14] = [0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0];
-	level1[15] = [0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0];
-
-
-var expandLvl = [];
-
-
-function expandLevelArr(levelNum) {
-	for(var j = 0; j < 46; j++) {
-		expandLvl[j] = new Array(32);
-	}
-	for(var i = 0; i < levelNum.length;i++) {
-		for(var j = 0; j < levelNum[i].length;j++) {
-				expandLvl[j*2][i*2] = levelNum[i][j];
-				expandLvl[j*2+1][i*2] = levelNum[i][j];
-				expandLvl[j*2][i*2+1] = levelNum[i][j];
-				expandLvl[j*2+1][i*2+1] = levelNum[i][j];
+function enemyBulletsCollision() {
+	enemyShots.forEach(function(bullet){
+		playerShots.forEach(function(myBullet){
+			if(bullet.x -3 < myBullet.x + myBullet.width +3 &&
+         		bullet.x + bullet.width +3 > myBullet.x -3 &&
+         		bullet.y +3 < myBullet.y + myBullet.height +3 &&
+        		bullet.y + bullet.height +3 > myBullet.y -3){
+				//myBullet.active = false;
+				//bullet.active = false;
+				bullet.hit = true;
+				myBullet.hit = true;
+			}
+		})
+		allEnemies.forEach(function(enemy){
+			if(collide(bullet, enemy)){
+				bullet.hit = true;
+			}
+		})
+		if(collide(bullet, myTank)){
+			bullet.hit = true;
+			if(bullet.hit == true && bullet.active == true){
+				myLives--;
+				console.log('damage', myLives);
+			}
+			
 		}
-	}
-	
+		
+	})
 }
-
-expandLevelArr(level1);
-//console.log(expandLvl);
-for(var j = 0; j < expandLvl.length;j++) {
-	console.log(j,expandLvl[j]);
-}
-
 
 function createLevel(levelNum) {
 	for(var i = 0; i < levelNum.length;i++) {
 		for(var j = 0; j < levelNum[i].length;j++) {
 			if(levelNum[i][j]==1){
 				canvas.save();
-				canvas.drawImage(brickImg, j*cellSize, i*cellSize);
-				canvas.drawImage(enemyImg, j*cellSize, i*cellSize);
+				canvas.drawImage(brickImg, j*cellSize/2, i*cellSize/2,cellSize/2,cellSize/2);
+				//canvas.drawImage(enemyImg, j*cellSize/2, i*cellSize/2,cellSize/2,cellSize/2);
 				//canvas.fillRect(j*cellSize, i*cellSize, cellSize, cellSize);
 				canvas.restore();
 			}
@@ -430,12 +720,92 @@ function createLevel(levelNum) {
 }
 
 function changeLevel() {
-	currentLevel = level1;
+	if(currentLevel == 0 ) {
+		currentLevel = level1;
+	}
+	
+	if(myKills == 8 && currentLevel == level1) {
+		currentLevel = level2;
+		resetData();
+	}
+}
+
+function resetData() {
+	myKills = 0;
+	playerShots = [];
+	allEnemies = [];
+	enemyShots = [];
+	countEnemies = 0;
+	createEnemy = false;
+	enemyCreateDelay = true;
+	myTank.x = 320;
+	myTank.y = 600;
+	myTank.step = 0;
+	myTank.direction = 'up';
 }
 
 
+function createInfo() {
+	canvas.save();
+	canvas.clearRect(fieldWidth, 0, fieldWidth+infoWidth, infoHeight);
+	canvas.fillStyle = '#ccc';
+	canvas.fillRect(fieldWidth, 0, fieldWidth+infoWidth, infoHeight);
+	canvas.fillStyle = '#1c1c1c';
+	canvas.font = 'bold 16px sans-serif';
+	canvas.fillText("Врагов убито:  " + myKills, fieldWidth+15, 70);
+	canvas.fillText("Жизней:  " + myLives, fieldWidth+15, 120);		
+	canvas.restore();
+}
 
 
+document.cancelFullScreen = document.cancelFullScreen || document.webkitCancelFullScreen ||      document.mozCancelFullScreen;
 
+function onFullScreenEnter() {
+  console.log("Enter fullscreen initiated from iframe");
+};
 
+function onFullScreenExit() {
+  console.log("Exit fullscreen initiated from iframe");
+};
 
+// Note: FF nightly needs about:config full-screen-api.enabled set to true.
+function enterFullscreen() {
+  //onFullScreenEnter(id);
+  var el =  document.getElementById(canvas);
+  var onfullscreenchange =  function(e){
+    var fullscreenElement = document.fullscreenElement || document.mozFullscreenElement || document.webkitFullscreenElement;
+    var fullscreenEnabled = document.fullscreenEnabled || document.mozFullscreenEnabled || document.webkitFullscreenEnabled;
+    console.log( 'fullscreenEnabled = ' + fullscreenEnabled, ',  fullscreenElement = ', fullscreenElement, ',  e = ', e);
+  }
+
+ // el.addEventListener("webkitfullscreenchange", onfullscreenchange);
+ // el.addEventListener("mozfullscreenchange",     onfullscreenchange);
+  //el.addEventListener("fullscreenchange",             onfullscreenchange);
+
+  /*if (el.webkitRequestFullScreen) {
+    el.webkitRequestFullScreen(Element.ALLOW_KEYBOARD_INPUT);
+  } else {
+    el.mozRequestFullScreen();
+  }*/
+  document.querySelector('button').onclick = function(){
+    exitFullscreen();
+  }
+}
+
+function exitFullscreen() {
+  //onFullScreenExit(id);
+  document.cancelFullScreen();
+  document.querySelector('button').onclick = function(){
+    enterFullscreen();
+  }
+}
+
+function launchFullScreen(element) {
+  if(element.requestFullScreen) {
+    element.requestFullScreen();
+  } else if(element.mozRequestFullScreen) {
+    element.mozRequestFullScreen();
+  } else if(element.webkitRequestFullScreen) {
+    element.webkitRequestFullScreen();
+  }
+}

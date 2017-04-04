@@ -2,10 +2,10 @@
 var canvasElement = document.getElementById('canvas');
 var canvas = canvasElement.getContext('2d');
 
-var fieldWidth = 920;
-var fieldHeight = 640;
-var infoWidth = 200;
-var infoHeight = 640;
+var fieldWidth = 1120;
+var fieldHeight = 720;
+var infoWidth = 160;
+var infoHeight = 720;
 var cellSize = 40;
 var currentLevel = 0;
 var countEnemies = 0;
@@ -40,6 +40,10 @@ enemyImg.src = 'enemy1.png';
 var explosionImg = new Image();
 explosionImg.addEventListener("load", function() {},false);
 explosionImg.src = 'explosion.png';
+
+var groundImg = new Image();
+groundImg.addEventListener("load", function() {},false);
+groundImg.src = 'ground.jpg';
 
 var myTank = {
 	color: "#00A",
@@ -706,28 +710,73 @@ function enemyBulletsCollision() {
 function createLevel(levelNum) {
 	for(var i = 0; i < levelNum.length;i++) {
 		for(var j = 0; j < levelNum[i].length;j++) {
+			if(levelNum[i][j]==0){
+				canvas.save();
+				canvas.drawImage(groundImg, j*cellSize/2, i*cellSize/2 + lvlStartY,cellSize/2,cellSize/2);
+				canvas.restore();
+			}
+			if(lvlStartY < 0){
+				canvas.save();
+				canvas.drawImage(groundImg, j*cellSize/2, i*cellSize/2 + (400-Math.abs(lvlStartY)),cellSize/2,cellSize/2);	
+				canvas.restore();
+			}
 			if(levelNum[i][j]==1){
 				canvas.save();
-				canvas.drawImage(brickImg, j*cellSize/2, i*cellSize/2,cellSize/2,cellSize/2);
+				canvas.drawImage(brickImg, j*cellSize/2, i*cellSize/2 + lvlStartY,cellSize/2,cellSize/2);
 				//canvas.drawImage(enemyImg, j*cellSize/2, i*cellSize/2,cellSize/2,cellSize/2);
 				//canvas.fillRect(j*cellSize, i*cellSize, cellSize, cellSize);
 				canvas.restore();
 			}
-			
 		}
 	}
+	canvas.save();
+	//canvas.drawImage(brickImg, 20, 20,cellSize/2,cellSize/2);
+	canvas.fillStyle = "rgb(222, 103, 0)";
+    canvas.fill();	
+	canvas.restore();
 
 }
 
 function changeLevel() {
-	if(currentLevel == 0 ) {
-		currentLevel = level1;
+	if(levelNum == 0 && lvlStartY >= -300 && lvlStartY < 0){
+		changeLvlAnim(level1Start);
 	}
-	
-	if(myKills == 8 && currentLevel == level1) {
-		currentLevel = level2;
+	if(levelNum == 0 && lvlStartY == 0) {
+		levelNum = 1;
+		setTimeout(function(){
+			resetData();
+			currentLevel = level1;
+		},2000);
+	}
+	if(myKills == 2 && currentLevel == level1) {
 		resetData();
+		enemyCreateDelay = false;
+		lvlStartY = -300;
+		currentLevel = level2Start;
 	}
+	if(lvlStartY >= -300 && lvlStartY < 0 && currentLevel == level2Start){
+		changeLvlAnim(level2Start);
+		createEnemy = false;
+	}
+	if(currentLevel == level2Start && levelNum == 1 && lvlStartY == 0) {
+		levelNum = 2;
+		setTimeout(function(){
+			resetData();
+			currentLevel = level2;
+		},2000);
+	}
+	if(currentLevel == level1Start && lvlStartY == 0 && levelNum == 2) {
+		
+	}
+}
+
+var levelNum = 0;
+var lvlStartY = -300;
+
+function changeLvlAnim(startimg) {
+	enemyCreateDelay = false;
+	currentLevel = startimg;
+	lvlStartY += 6;
 }
 
 function resetData() {
@@ -752,8 +801,8 @@ function createInfo() {
 	canvas.fillRect(fieldWidth, 0, fieldWidth+infoWidth, infoHeight);
 	canvas.fillStyle = '#1c1c1c';
 	canvas.font = 'bold 16px sans-serif';
-	canvas.fillText("Врагов убито:  " + myKills, fieldWidth+15, 70);
-	canvas.fillText("Жизней:  " + myLives, fieldWidth+15, 120);		
+	canvas.fillText("Kills:  " + myKills, fieldWidth+15, 70);
+	canvas.fillText("Lives:  " + myLives, fieldWidth+15, 120);		
 	canvas.restore();
 }
 
@@ -801,11 +850,29 @@ function exitFullscreen() {
 }
 
 function launchFullScreen(element) {
-  if(element.requestFullScreen) {
-    element.requestFullScreen();
-  } else if(element.mozRequestFullScreen) {
-    element.mozRequestFullScreen();
-  } else if(element.webkitRequestFullScreen) {
-    element.webkitRequestFullScreen();
-  }
+	if(element.requestFullScreen) {
+		element.requestFullScreen();
+	} else if(element.mozRequestFullScreen) {
+		element.mozRequestFullScreen();
+	} else if(element.webkitRequestFullScreen) {
+		element.webkitRequestFullScreen();
+	}
+	window.addEventListener("webkitfullscreenchange", onfullscreenchange);
+	window.addEventListener("mozfullscreenchange", onfullscreenchange);
+	window.addEventListener("fullscreenchange", onfullscreenchange);
+	/*if (canvas.webkitRequestFullScreen) {
+		canvas.webkitRequestFullScreen(Element.ALLOW_KEYBOARD_INPUT);
+	} else {
+		canvas.mozRequestFullScreen();
+	}*/
+	
 }
+
+function onfullscreenchange() {
+	canvasElement.style.width = '100%';
+	canvasElement.style.height = '100%';
+	console.log(canvasElement.width);
+
+}
+
+

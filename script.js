@@ -7,7 +7,9 @@ var fieldHeight = 720;
 var infoWidth = 160;
 var infoHeight = 720;
 var cellSize = 40;
-var currentLevel = 0;
+
+var currentLevel = false;
+var levelNum = 0;
 var countEnemies = 0;
 var createEnemy = false;
 var enemyCreateDelay = true;
@@ -18,8 +20,15 @@ var enemyShots = [];
 
 var myKills = 0;
 var myLives = 999;
+var killsToWin = 6;
+var enemiesOnScreen = 4;
+
+var levelEnds = true;
+var pause = false;
+var lvlStartY = -300;
 
 var FPS = 30;
+// главный цикл
 setInterval(function() {
 	update();
 	draw();
@@ -27,28 +36,28 @@ setInterval(function() {
 
 var myTankImg = new Image();
 myTankImg.addEventListener("load", function() {},false);
-myTankImg.src = 'demosmall.png';
+myTankImg.src = 'img/myTank.png';
 
 var brickImg = new Image();
 brickImg.addEventListener("load", function() {},false);
-brickImg.src = 'brick.jpg';
+brickImg.src = 'img/brick.jpg';
 
-var enemyImg = new Image();
-enemyImg.addEventListener("load", function() {},false);
-enemyImg.src = 'enemy1.png';
+var enemyImg1 = new Image();
+enemyImg1.addEventListener("load", function() {},false);
+enemyImg1.src = 'img/enemy1.png';
 
 var explosionImg = new Image();
 explosionImg.addEventListener("load", function() {},false);
-explosionImg.src = 'explosion.png';
+explosionImg.src = 'img/explosion.png';
 
 var groundImg = new Image();
 groundImg.addEventListener("load", function() {},false);
-groundImg.src = 'ground.jpg';
+groundImg.src = 'img/ground.jpg';
 
 var myTank = {
 	color: "#00A",
-	x: 320,
-	y: 600,
+	x: 440,
+	y: 640,
 	width: cellSize,
 	height: cellSize,
 	direction: 'up',
@@ -85,10 +94,24 @@ var myTank = {
 
 
 function update() {
-	
+	if(myKills >= killsToWin && !levelEnds && countEnemies !=0){
+		setTimeout(function(){
+			levelEnds = true;
+			if(lvlStartY == 0){
+				lvlStartY = -300;
+			}
+		},3000)
+		countEnemies = 0;
+	}
+	if(levelEnds){
+		if(lvlStartY != 0){
+			levelNum = changeLevel(levelNum);
+		}
+		console.log('levelEnds');
+		return;
+	}
+
 	controls();
-	
-	changeLevel();
 	
 	moveRules(myTank);
 	
@@ -104,7 +127,7 @@ function update() {
 	});
 
 	
-	if (allEnemies.length < 4 ) { //занести врага в массив
+	if (allEnemies.length < enemiesOnScreen) { //занести врага в массив
 		var respawnBusy = false;
 		allEnemies.forEach(function(enemy) {
 			if(enemy.y < cellSize) {
@@ -116,7 +139,9 @@ function update() {
 			enemyCreateDelay = false;
 		}
 		if(respawnBusy == false && createEnemy) {
-			allEnemies.push(Enemy({number: countEnemies+=1}))
+			if( myKills+allEnemies.length < killsToWin) {
+				allEnemies.push(Enemy({number: countEnemies+=1}))
+			}
 			createEnemy = false;
 			enemyCreateDelay = true;
 		}		
@@ -126,7 +151,6 @@ function update() {
 		AI(enemy);
 		enemy.update();
 		moveRules(enemy);
-		//console.log(enemy.number, enemy.x, enemy.y);
 	});
 	
 	enemyShots.forEach(function(bullet) {
@@ -158,6 +182,12 @@ function draw() {
 	canvas.clearRect(0, 0, fieldWidth, fieldHeight);
 	
 	createLevel(currentLevel);
+
+	createInfo();
+
+	if(levelEnds){
+		return;
+	}
 	
 	myTank.draw();	
 	
@@ -172,8 +202,6 @@ function draw() {
 	enemyShots.forEach(function(bullet) {
 		bullet.draw();
 	});
-	
-	createInfo();
 }
 
 function randomInt(minRandom,maxRandom) {
@@ -472,10 +500,10 @@ function Enemy(I) {
 			I.x = 0;
 			break;
 		case 2:
-			I.x = 440;
+			I.x = 540;
 			break;
 		case 3:
-			I.x = 880;
+			I.x = 1080;
 			break;
 	}
 	I.y = 0,
@@ -506,7 +534,7 @@ function Enemy(I) {
 			canvas.rotate(Math.PI*2);
 		}			
 		canvas.translate(-this.x - this.width/2, -this.y - this.height/2);
-		canvas.drawImage(enemyImg, this.x, this.y);
+		canvas.drawImage(enemyImg1, this.x, this.y);
 		canvas.restore();
 		}
 	};
@@ -656,12 +684,9 @@ function breakWall(levelNum, tankShots) {
 						
 					}
 				);
-
-			}
-			
+			}			
 		}
-	}
-	
+	}	
 }
 
 function killEnemy() {
@@ -723,60 +748,34 @@ function createLevel(levelNum) {
 			if(levelNum[i][j]==1){
 				canvas.save();
 				canvas.drawImage(brickImg, j*cellSize/2, i*cellSize/2 + lvlStartY,cellSize/2,cellSize/2);
-				//canvas.drawImage(enemyImg, j*cellSize/2, i*cellSize/2,cellSize/2,cellSize/2);
-				//canvas.fillRect(j*cellSize, i*cellSize, cellSize, cellSize);
 				canvas.restore();
 			}
 		}
 	}
 	canvas.save();
-	//canvas.drawImage(brickImg, 20, 20,cellSize/2,cellSize/2);
 	canvas.fillStyle = "rgb(222, 103, 0)";
     canvas.fill();	
 	canvas.restore();
 
 }
 
-function changeLevel() {
-	if(levelNum == 0 && lvlStartY >= -300 && lvlStartY < 0){
-		changeLvlAnim(level1Start);
-	}
-	if(levelNum == 0 && lvlStartY == 0) {
-		levelNum = 1;
+function changeLevel(levelNum) {
+	if(lvlStartY >= -300 && lvlStartY < -6){
+		currentLevel = levelsStart[+levelNum+1];
+		lvlStartY += 6;
+		return levelNum;
+	}else{
+		console.log('687789');
 		setTimeout(function(){
 			resetData();
-			currentLevel = level1;
+			resetMyTank()
+			currentLevel = levels[+levelNum];
+			levelEnds = false;
 		},2000);
+		lvlStartY = 0;
+		levelNum++;
+		return levelNum;
 	}
-	if(myKills == 2 && currentLevel == level1) {
-		resetData();
-		enemyCreateDelay = false;
-		lvlStartY = -300;
-		currentLevel = level2Start;
-	}
-	if(lvlStartY >= -300 && lvlStartY < 0 && currentLevel == level2Start){
-		changeLvlAnim(level2Start);
-		createEnemy = false;
-	}
-	if(currentLevel == level2Start && levelNum == 1 && lvlStartY == 0) {
-		levelNum = 2;
-		setTimeout(function(){
-			resetData();
-			currentLevel = level2;
-		},2000);
-	}
-	if(currentLevel == level1Start && lvlStartY == 0 && levelNum == 2) {
-		
-	}
-}
-
-var levelNum = 0;
-var lvlStartY = -300;
-
-function changeLvlAnim(startimg) {
-	enemyCreateDelay = false;
-	currentLevel = startimg;
-	lvlStartY += 6;
 }
 
 function resetData() {
@@ -787,8 +786,10 @@ function resetData() {
 	countEnemies = 0;
 	createEnemy = false;
 	enemyCreateDelay = true;
-	myTank.x = 320;
-	myTank.y = 600;
+}
+function resetMyTank() {
+	myTank.x = 440;
+	myTank.y = 640;
 	myTank.step = 0;
 	myTank.direction = 'up';
 }
@@ -807,7 +808,7 @@ function createInfo() {
 }
 
 
-document.cancelFullScreen = document.cancelFullScreen || document.webkitCancelFullScreen ||      document.mozCancelFullScreen;
+document.cancelFullScreen = document.cancelFullScreen || document.webkitCancelFullScreen || document.mozCancelFullScreen;
 
 function onFullScreenEnter() {
   console.log("Enter fullscreen initiated from iframe");

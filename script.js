@@ -1,6 +1,8 @@
-
 var canvasElement = document.getElementById('canvas');
 var canvas = canvasElement.getContext('2d');
+
+document.onkeydown = document.onkeypress = document.onkeyup = getKeyPress;
+var keydown = {};
 
 var fieldWidth = 1120;
 var fieldHeight = 720;
@@ -23,7 +25,7 @@ var myLives = 999;
 var killsToWin = 6;
 var enemiesOnScreen = 4;
 
-var barriers = [1,2,3];
+var barriers = [1,2,3,];
 var breakable = [1];
 var unbreakable = [2];
 
@@ -57,6 +59,10 @@ enemyImg1.src = 'img/enemy1.png';
 var explosionImg = new Image();
 explosionImg.addEventListener("load", function() {},false);
 explosionImg.src = 'img/explosion.png';
+
+var headqurtersImg = new Image();
+headqurtersImg.addEventListener("load", function() {},false);
+headqurtersImg.src = 'img/headquarters.png';
 
 var groundImg = new Image();
 groundImg.addEventListener("load", function() {},false);
@@ -201,6 +207,8 @@ function draw() {
 		allEnemies.forEach(function(enemy) {
 			enemy.draw();
 		});
+
+		headquarters.draw()
 		
 		enemyShots.forEach(function(bullet) {
 			bullet.draw();
@@ -212,6 +220,28 @@ function draw() {
 
 function randomInt(minRandom,maxRandom) {
 	return Math.floor(Math.random()* (maxRandom - minRandom + 1)) + minRandom;
+}
+
+function getKeyPress(event){
+	var pressedButton;
+	switch(event.keyCode) {
+		case 87:
+		    pressedButton = 'w'; break;
+		case 65:
+		    pressedButton = 'a'; break;
+		case 83:
+		    pressedButton = 's'; break;
+		case 68:
+		    pressedButton = 'd'; break;
+		case 32:
+		    pressedButton = 'space'; break;
+	}
+	if(event.type == 'keydown' || event.type == 'keypress'){
+		keydown[pressedButton] = true;
+	}
+	if(event.type == 'keyup'){
+		keydown[pressedButton] = false;
+	}
 }
 
 function controls() {
@@ -383,6 +413,18 @@ function moveRules(tank) {
 	
 }
 
+var headquarters = {
+	active: true,
+	x: fieldWidth/2 - cellSize/2,
+	y: fieldHeight - cellSize,
+	draw: function(){
+		if(this.active) {
+			canvas.save();
+			canvas.drawImage(headqurtersImg, this.x, this.y);
+			canvas.restore();
+		} 
+	},
+}
 
 function Bullet(I) {
 	I.active = true;

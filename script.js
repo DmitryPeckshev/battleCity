@@ -1,5 +1,6 @@
 var canvasElement = document.getElementById('canvas');
 var canvas = canvasElement.getContext('2d');
+var fullscreenBtn = document.getElementById('fullscreenBtn');
 
 document.onkeydown = document.onkeypress = document.onkeyup = getKeyPress;
 var keydown = {};
@@ -30,8 +31,10 @@ var breakable = [1];
 var unbreakable = [2];
 
 var levelEnds = true;
-var pause = false;
+var isPause = true;
 var lvlStartY = -300;
+var startTime = 0;
+var timer = 0;
 
 var FPS = 30;
 // главный цикл
@@ -81,8 +84,16 @@ var myTank = {
 	shootTimer: 0,
 	number: 0,
 	nearEnemy: 0,
+	shoot: function() {
+		var bulletPosition = shootPointFunc(myTank);
+		playerShots.push(Bullet({ 
+			speed: 8,
+			flyDirection: this.direction,
+			x: bulletPosition.x,
+			y: bulletPosition.y
+		}));	
+	},
 	draw: function() {
-
 		canvas.save();
 		//canvas.globalCompositeOperation='destination-over';
 		
@@ -106,8 +117,12 @@ var myTank = {
 	}
 }
 
-
 function update() {
+
+	if(pause()){
+		return;
+	}
+
 	if(myKills >= killsToWin && !levelEnds && countEnemies !=0){
 		setTimeout(function(){
 			levelEnds = true;
@@ -139,26 +154,7 @@ function update() {
 		bullet.update();
 	});
 
-	
-	if (allEnemies.length < enemiesOnScreen) { //занести врага в массив
-		var respawnBusy = false;
-		allEnemies.forEach(function(enemy) {
-			if(enemy.y < cellSize) {
-				respawnBusy = true;
-			}
-		});
-		if(enemyCreateDelay){
-			setTimeout(function(){createEnemy = true },3000)
-			enemyCreateDelay = false;
-		}
-		if(respawnBusy == false && createEnemy) {
-			if( myKills+allEnemies.length < killsToWin) {
-				allEnemies.push(Enemy({number: countEnemies+=1}))
-			}
-			createEnemy = false;
-			enemyCreateDelay = true;
-		}		
-	}
+	addEnemy();
 	
 	allEnemies.forEach(function(enemy) {
 		AI(enemy);
@@ -188,6 +184,10 @@ function update() {
 	allEnemies = allEnemies.filter(function(enemy) {
 		return enemy.active;
 	});
+
+	if (keydown.t) {
+		launchFullScreen(canvasElement);
+	}
 }
 
 
@@ -216,6 +216,8 @@ function draw() {
 	}
 
 	createInfo();
+
+	drawPause();
 }
 
 function randomInt(minRandom,maxRandom) {
@@ -235,6 +237,8 @@ function getKeyPress(event){
 		    pressedButton = 'd'; break;
 		case 32:
 		    pressedButton = 'space'; break;
+		case 13:
+		    pressedButton = 'enter'; break;
 	}
 	if(event.type == 'keydown' || event.type == 'keypress'){
 		keydown[pressedButton] = true;
@@ -374,7 +378,6 @@ function moveRules(tank) {
 	// столкновения
 	allEnemies.forEach(function(enemy) {
 		if(collide(tank, enemy) && tank.number != 0) {
-			//console.log(tank, enemy);
 			if(tank.number == enemy.number){return;}
 			if(tank.direction == 'left') {
 				tank.x += tank.speed; 
@@ -478,17 +481,6 @@ function Bullet(I) {
 	};
 	
 	return I;
-}
-
-
-myTank.shoot = function() {
-	var bulletPosition = shootPointFunc(myTank);
-	playerShots.push(Bullet({ 
-		speed: 8,
-		flyDirection: this.direction,
-		x: bulletPosition.x,
-		y: bulletPosition.y
-	}));	
 }
 
 	// начало выстрела
@@ -627,6 +619,28 @@ function Enemy(I) {
 		}));	
 	}
 	return I;
+}
+
+function addEnemy() {
+	if (allEnemies.length < enemiesOnScreen) { //занести врага в массив
+		var respawnBusy = false;
+		allEnemies.forEach(function(enemy) {
+			if(enemy.y < cellSize) {
+				respawnBusy = true;
+			}
+		});
+		if(enemyCreateDelay){
+			setTimeout(function(){createEnemy = true },3000)
+			enemyCreateDelay = false;
+		}
+		if(respawnBusy == false && createEnemy) {
+			if( myKills+allEnemies.length < killsToWin) {
+				allEnemies.push(Enemy({number: countEnemies+=1}))
+			}
+			createEnemy = false;
+			enemyCreateDelay = true;
+		}		
+	}
 }
 
 function AI(enemy) {
@@ -828,6 +842,7 @@ function resetData() {
 	countEnemies = 0;
 	createEnemy = false;
 	enemyCreateDelay = true;
+	startTime = Date.now();
 }
 function resetMyTank() {
 	myTank.x = 440;
@@ -836,6 +851,22 @@ function resetMyTank() {
 	myTank.direction = 'up';
 }
 
+function pause() {
+	if(!keydown.enter){
+		keydown.enter = 'wait';
+		isPause = !isPause;
+	}
+	return isPause;
+}
+
+function drawPause() {
+	if(isPause){
+		canvas.save();
+		canvas.fillStyle = "rgba(50,50,50,0.4)";
+		canvas.fillRect(0, 0, fieldWidth+infoWidth, infoHeight);
+		canvas.restore();
+	}
+}
 
 function createInfo() {
 	canvas.save();
@@ -843,54 +874,41 @@ function createInfo() {
 	canvas.fillStyle = '#ccc';
 	canvas.fillRect(fieldWidth, 0, fieldWidth+infoWidth, infoHeight);
 	canvas.fillStyle = '#1c1c1c';
+	canvas.font = 'bold 22px sans-serif';
+	canvas.fillText("Level: " + levelNum, fieldWidth+15, 35);
 	canvas.font = 'bold 16px sans-serif';
-	canvas.fillText("Kills:  " + myKills, fieldWidth+15, 70);
-	canvas.fillText("Lives:  " + myLives, fieldWidth+15, 120);		
+	canvas.fillText("Lives:  " + myLives, fieldWidth+15, 85);
+	canvas.fillText("Kills:  " + myKills, fieldWidth+15, 120);
+	canvas.fillText("Time:  " + levelTimer(), fieldWidth+15, 155);
+	canvas.font = 'bold 18px sans-serif';
+	canvas.fillText("Controls:  ", fieldWidth+25, 457);
+	canvas.font = 'bold 14px sans-serif';
+	canvas.fillText("Up: w ", fieldWidth+15, 485);
+	canvas.fillText("Left: a " , fieldWidth+15, 510);
+	canvas.fillText("Down: s ", fieldWidth+15, 535);	
+	canvas.fillText("Right: d ", fieldWidth+15, 560);
+	canvas.fillText("Shoot: spase ", fieldWidth+15, 585);
+	canvas.fillText("Pause: enter ", fieldWidth+15, 610);	
 	canvas.restore();
 }
 
-
-document.cancelFullScreen = document.cancelFullScreen || document.webkitCancelFullScreen || document.mozCancelFullScreen;
-
-function onFullScreenEnter() {
-  console.log("Enter fullscreen initiated from iframe");
-};
-
-function onFullScreenExit() {
-  console.log("Exit fullscreen initiated from iframe");
-};
-
-// Note: FF nightly needs about:config full-screen-api.enabled set to true.
-function enterFullscreen() {
-  //onFullScreenEnter(id);
-  var el =  document.getElementById(canvas);
-  var onfullscreenchange =  function(e){
-    var fullscreenElement = document.fullscreenElement || document.mozFullscreenElement || document.webkitFullscreenElement;
-    var fullscreenEnabled = document.fullscreenEnabled || document.mozFullscreenEnabled || document.webkitFullscreenEnabled;
-    console.log( 'fullscreenEnabled = ' + fullscreenEnabled, ',  fullscreenElement = ', fullscreenElement, ',  e = ', e);
-  }
-
- // el.addEventListener("webkitfullscreenchange", onfullscreenchange);
- // el.addEventListener("mozfullscreenchange",     onfullscreenchange);
-  //el.addEventListener("fullscreenchange",             onfullscreenchange);
-
-  /*if (el.webkitRequestFullScreen) {
-    el.webkitRequestFullScreen(Element.ALLOW_KEYBOARD_INPUT);
-  } else {
-    el.mozRequestFullScreen();
-  }*/
-  document.querySelector('button').onclick = function(){
-    exitFullscreen();
-  }
+function levelTimer(){
+	if(!isPause){
+		timer = Date.now() - startTime;
+	}else{
+		startTime += Date.now() - startTime - timer;
+	}
+	var diffTime = Math.round(timer /1000);
+	var mins = Math.floor(diffTime / 60);
+	diffTime = diffTime - mins*60;
+	if(levelEnds){
+		return '0 : 00';
+	}else{
+		return mins+' : '+(diffTime<10?'0':'')+diffTime;
+	}
 }
 
-function exitFullscreen() {
-  //onFullScreenExit(id);
-  document.cancelFullScreen();
-  document.querySelector('button').onclick = function(){
-    enterFullscreen();
-  }
-}
+fullscreenBtn.addEventListener("click", function(){launchFullScreen(canvasElement);});
 
 function launchFullScreen(element) {
 	if(element.requestFullScreen) {
@@ -900,22 +918,4 @@ function launchFullScreen(element) {
 	} else if(element.webkitRequestFullScreen) {
 		element.webkitRequestFullScreen();
 	}
-	window.addEventListener("webkitfullscreenchange", onfullscreenchange);
-	window.addEventListener("mozfullscreenchange", onfullscreenchange);
-	window.addEventListener("fullscreenchange", onfullscreenchange);
-	/*if (canvas.webkitRequestFullScreen) {
-		canvas.webkitRequestFullScreen(Element.ALLOW_KEYBOARD_INPUT);
-	} else {
-		canvas.mozRequestFullScreen();
-	}*/
-	
 }
-
-function onfullscreenchange() {
-	canvasElement.style.width = '100%';
-	canvasElement.style.height = '100%';
-	console.log(canvasElement.width);
-
-}
-
-

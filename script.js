@@ -22,18 +22,19 @@ var allEnemies = [];
 var enemyShots = [];
 
 var myKills = 0;
-var myLives = 999;
-var killsToWin = 6;
-var enemiesOnScreen = 4;
+var myLives = 1;
+var killsToWin = 12;
+var enemiesOnScreen = 8;
 
-var barriers = [1,2,3,];
+var barriers = [1,2,3,9];
 var breakable = [1];
 var unbreakable = [2];
 
 var levelEnds = true;
 var isPause = true;
 var lvlStartY = -300;
-var startTime = 0;
+var gameOverStartY = -300;
+var startTime = Date.now();
 var timer = 0;
 
 var FPS = 30;
@@ -43,34 +44,6 @@ setInterval(function() {
 	draw();
 },1000/FPS);
 
-var myTankImg = new Image();
-myTankImg.addEventListener("load", function() {},false);
-myTankImg.src = 'img/myTank.png';
-
-var brickImg = new Image();
-brickImg.addEventListener("load", function() {},false);
-brickImg.src = 'img/brick.png';
-
-var concreteImg = new Image();
-concreteImg.addEventListener("load", function() {},false);
-concreteImg.src = 'img/concrete.png';
-
-var enemyImg1 = new Image();
-enemyImg1.addEventListener("load", function() {},false);
-enemyImg1.src = 'img/enemy1.png';
-
-var explosionImg = new Image();
-explosionImg.addEventListener("load", function() {},false);
-explosionImg.src = 'img/explosion.png';
-
-var headqurtersImg = new Image();
-headqurtersImg.addEventListener("load", function() {},false);
-headqurtersImg.src = 'img/headquarters.png';
-
-var groundImg = new Image();
-groundImg.addEventListener("load", function() {},false);
-groundImg.src = 'img/ground.jpg';
-
 var myTank = {
 	color: "#00A",
 	x: 440,
@@ -78,7 +51,7 @@ var myTank = {
 	width: cellSize,
 	height: cellSize,
 	direction: 'up',
-	speed: 4,
+	speed: 4, // возможные значения только 4 и 5
 	step: 0,
 	shootDelay: 15,
 	shootTimer: 0,
@@ -123,13 +96,17 @@ function update() {
 		return;
 	}
 
+	if(myLives < 0){
+		return;
+	}
+
 	if(myKills >= killsToWin && !levelEnds && countEnemies !=0){
 		setTimeout(function(){
 			levelEnds = true;
 			if(lvlStartY == 0){
 				lvlStartY = -300;
 			}
-		},3000)
+		},3000);
 		countEnemies = 0;
 	}
 	if(levelEnds){
@@ -190,36 +167,6 @@ function update() {
 	}
 }
 
-
-function draw() {
-	canvas.clearRect(0, 0, fieldWidth, fieldHeight);
-	
-	createLevel(currentLevel);
-
-	if(!levelEnds){
-
-		myTank.draw();	
-		
-		playerShots.forEach(function(bullet) {
-			bullet.draw();
-		});
-		
-		allEnemies.forEach(function(enemy) {
-			enemy.draw();
-		});
-
-		headquarters.draw()
-		
-		enemyShots.forEach(function(bullet) {
-			bullet.draw();
-		});
-	}
-
-	createInfo();
-
-	drawPause();
-}
-
 function randomInt(minRandom,maxRandom) {
 	return Math.floor(Math.random()* (maxRandom - minRandom + 1)) + minRandom;
 }
@@ -249,38 +196,37 @@ function getKeyPress(event){
 }
 
 function controls() {
-	//myTankCollide();
 	if(myTank.step <= 0 && myTank.x%(cellSize/2)==0 && myTank.y%(cellSize/2)==0) { 
 		if (keydown.a && !(keydown.d || keydown.w || keydown.s)) {
 			myTank.direction = 'left';
 			myTankCollide('a');
 			if(myTank.nearEnemy != 1) {
+				myTank.step = onIce(myTank)*(cellSize/2/myTank.speed)-1;
 				myTank.x -= myTank.speed;
-				myTank.step = cellSize/10;
 			}
 		}
 		if (keydown.d && !(keydown.a || keydown.w || keydown.s)) {
 			myTank.direction = 'right';
 			myTankCollide('d');
 			if(myTank.nearEnemy != 2) {
+				myTank.step = onIce(myTank)*(cellSize/2/myTank.speed)-1;
 				myTank.x += myTank.speed;
-				myTank.step = cellSize/10;
 			}
 		}
 		if (keydown.w && !(keydown.d || keydown.a || keydown.s)) {
     		myTank.direction = 'up';
     		myTankCollide('w');
     		if(myTank.nearEnemy != 3) {
+    			myTank.step = onIce(myTank)*(cellSize/2/myTank.speed)-1;
     			myTank.y -= myTank.speed;
-    			myTank.step = cellSize/10;
     		}
 		}
 		if (keydown.s && !(keydown.d || keydown.w || keydown.a)) {
 			myTank.direction = 'down';
 			myTankCollide('s');
 			if(myTank.nearEnemy != 4) {
+				myTank.step = onIce(myTank)*(cellSize/2/myTank.speed)-1;
 				myTank.y += myTank.speed;
-				myTank.step = cellSize/10;
 			}
 		}
 	} else {
@@ -298,6 +244,71 @@ function controls() {
 		}
 		myTank.step -= 1;
 	}
+}
+
+function onIce(tank){
+	if (tank.direction == 'left') {
+		if(currentLevel[tank.y/(cellSize/2)][tank.x/(cellSize/2)] == 5 && 
+			currentLevel[(tank.y/(cellSize/2))+1][tank.x/(cellSize/2)] == 5)
+		{
+			if(currentLevel[tank.y/(cellSize/2)][(tank.x/(cellSize/2))-2] == 5 && 
+				currentLevel[(tank.y/(cellSize/2))+1][(tank.x/(cellSize/2))-2] == 5)
+			{
+				return 3;
+			}
+			if(currentLevel[tank.y/(cellSize/2)][(tank.x/(cellSize/2))-1] == 5 && 
+				currentLevel[(tank.y/(cellSize/2))+1][(tank.x/(cellSize/2))-1] == 5)
+			{
+				return 2;
+			}
+		}
+	}else if (tank.direction == 'right') {
+		if(currentLevel[tank.y/(cellSize/2)][(tank.x/(cellSize/2))+1] == 5 && 
+			currentLevel[(tank.y/(cellSize/2))+1][(tank.x/(cellSize/2))+1] == 5)
+		{
+			if(currentLevel[tank.y/(cellSize/2)][(tank.x/(cellSize/2))+3] == 5 && 
+				currentLevel[(tank.y/(cellSize/2))+1][(tank.x/(cellSize/2))+3] == 5)
+			{
+				return 3;
+			}
+			if(currentLevel[tank.y/(cellSize/2)][(tank.x/(cellSize/2))+2] == 5 && 
+				currentLevel[(tank.y/(cellSize/2))+1][(tank.x/(cellSize/2))+2] == 5)
+			{
+				return 2;
+			}
+		}
+	}else if (tank.direction == 'up') {
+		if(currentLevel[tank.y/(cellSize/2)][tank.x/(cellSize/2)] == 5 && 
+			currentLevel[tank.y/(cellSize/2)][(tank.x/(cellSize/2))+1] == 5)
+		{
+			if(currentLevel[(tank.y/(cellSize/2))-2][tank.x/(cellSize/2)] == 5 &&
+				currentLevel[(tank.y/(cellSize/2))-2][(tank.x/(cellSize/2))+1] == 5)
+			{
+				return 3;
+			}
+			if(currentLevel[(tank.y/(cellSize/2))-1][tank.x/(cellSize/2)] == 5 &&
+				currentLevel[(tank.y/(cellSize/2))-1][(tank.x/(cellSize/2))+1] == 5)
+			{
+				return 2;
+			}
+		}
+	}else if (tank.direction == 'down') {
+		if(currentLevel[(tank.y/(cellSize/2))+1][tank.x/(cellSize/2)] == 5 && 
+			currentLevel[(tank.y/(cellSize/2))+1][(tank.x/(cellSize/2))+1] == 5)
+		{
+			if(currentLevel[(tank.y/(cellSize/2))+3][tank.x/(cellSize/2)] == 5 &&
+				currentLevel[(tank.y/(cellSize/2))+3][(tank.x/(cellSize/2))+1] == 5)
+			{
+				return 3;
+			}
+			if(currentLevel[(tank.y/(cellSize/2))+2][tank.x/(cellSize/2)] == 5 &&
+				currentLevel[(tank.y/(cellSize/2))+2][(tank.x/(cellSize/2))+1] == 5)
+			{
+				return 2;
+			}
+		}
+	}
+	return 1;
 }
 
 function isBarrier(nearCells, barriers){
@@ -423,7 +434,7 @@ var headquarters = {
 	draw: function(){
 		if(this.active) {
 			canvas.save();
-			canvas.drawImage(headqurtersImg, this.x, this.y);
+			canvas.drawImage(headquartersImg, this.x, this.y);
 			canvas.restore();
 		} 
 	},
@@ -535,7 +546,7 @@ function Enemy(I) {
 	I.height = cellSize,
 	I.direction = 'down',
 	I.step = 0,
-	I.speed = 4,
+	I.speed = 5,
 	I.fire = false,
 	I.shootDelay = 15,
 	I.shootTimer = 0,
@@ -569,22 +580,22 @@ function Enemy(I) {
 		if (this.go == 'left') {
 			this.x -= this.speed;
 			this.direction = 'left';
-			this.step = cellSize/10;
+			//this.step = cellSize/10;
 		}
 		if (this.go == 'right') {
 			this.x += this.speed;
 			this.direction = 'right';
-			this.step = cellSize/10;
+			//this.step = cellSize/10;
 		}
 		if (this.go == 'up') {
     		this.y -= this.speed;
     		this.direction = 'up';
-    		this.step = cellSize/10;
+    		//this.step = cellSize/10;
 		}
 		if (this.go == 'down') {
 			this.y += this.speed;
 			this.direction = 'down';
-			this.step = cellSize/10;
+			//this.step = cellSize/10;
 		}
 
 	/*} else {
@@ -654,8 +665,8 @@ function AI(enemy) {
 	}
 	if (enemy.go == 'barrier') {
 		changeDirection ();
-	}else{
-		if(randomInt(0,39)==0) {
+	}else if(enemy.x%(cellSize/2)==0 && enemy.y%(cellSize/2)==0){
+		if(randomInt(0,8)==0) {
 			changeDirection ();
 		}
 	}
@@ -725,8 +736,7 @@ function barriersAndBullets(currentLevel, tankShots) {
 						var tryBullet = bullet;
 						breakable.forEach(function(oneBreakable){
 							if(currentLevel[i][j]==oneBreakable){
-								var hit = collide(tryBullet, wallPos);
-								if(hit) {
+								if(collide(tryBullet, wallPos)) {
 									currentLevel[i][j] = 0;
 									bullet.hit = true;
 								}
@@ -734,12 +744,17 @@ function barriersAndBullets(currentLevel, tankShots) {
 						});
 						unbreakable.forEach(function(oneUnbreakable){
 							if(currentLevel[i][j]==oneUnbreakable){
-								var hit = collide(tryBullet, wallPos);
-								if(hit) {
+								if(collide(tryBullet, wallPos)) {
 									bullet.hit = true;
 								}
 							}
-						});	
+						});
+						if(currentLevel[i][j]==9){ //  попали по штабу
+							if(collide(tryBullet, wallPos)) {
+								myLives = -1;
+								headquarters.draw = function(){};
+							}
+						}	
 					}
 				);
 			}
@@ -782,38 +797,13 @@ function enemyBulletsCollision() {
 			bullet.hit = true;
 			if(bullet.hit == true && bullet.active == true){
 				myLives--;
+				resetMyTank();
 				console.log('damage', myLives);
 			}
 			
 		}
 		
 	})
-}
-
-function createLevel(levelNum) {
-	for(var i = 0; i < levelNum.length;i++) {
-		for(var j = 0; j < levelNum[i].length;j++) {
-			canvas.save();
-			if(levelNum[i][j]==0){
-				canvas.drawImage(groundImg, j*cellSize/2, i*cellSize/2 + lvlStartY,cellSize/2,cellSize/2);
-			}
-			if(lvlStartY < 0){
-				canvas.drawImage(groundImg, j*cellSize/2, i*cellSize/2 + (400-Math.abs(lvlStartY)),cellSize/2,cellSize/2);	
-			}
-			if(levelNum[i][j]==1){
-				canvas.drawImage(brickImg, j*cellSize/2, i*cellSize/2 + lvlStartY,cellSize/2,cellSize/2);
-			}
-			if(levelNum[i][j]==2){
-				canvas.drawImage(concreteImg, j*cellSize/2, i*cellSize/2 + lvlStartY,cellSize/2,cellSize/2);
-			}
-			canvas.restore();
-		}
-	}
-	canvas.save();
-	canvas.fillStyle = "rgb(222, 103, 0)";
-    canvas.fill();	
-	canvas.restore();
-
 }
 
 function changeLevel(levelNum) {
@@ -857,39 +847,6 @@ function pause() {
 		isPause = !isPause;
 	}
 	return isPause;
-}
-
-function drawPause() {
-	if(isPause){
-		canvas.save();
-		canvas.fillStyle = "rgba(50,50,50,0.4)";
-		canvas.fillRect(0, 0, fieldWidth+infoWidth, infoHeight);
-		canvas.restore();
-	}
-}
-
-function createInfo() {
-	canvas.save();
-	canvas.clearRect(fieldWidth, 0, fieldWidth+infoWidth, infoHeight);
-	canvas.fillStyle = '#ccc';
-	canvas.fillRect(fieldWidth, 0, fieldWidth+infoWidth, infoHeight);
-	canvas.fillStyle = '#1c1c1c';
-	canvas.font = 'bold 22px sans-serif';
-	canvas.fillText("Level: " + levelNum, fieldWidth+15, 35);
-	canvas.font = 'bold 16px sans-serif';
-	canvas.fillText("Lives:  " + myLives, fieldWidth+15, 85);
-	canvas.fillText("Kills:  " + myKills, fieldWidth+15, 120);
-	canvas.fillText("Time:  " + levelTimer(), fieldWidth+15, 155);
-	canvas.font = 'bold 18px sans-serif';
-	canvas.fillText("Controls:  ", fieldWidth+25, 457);
-	canvas.font = 'bold 14px sans-serif';
-	canvas.fillText("Up: w ", fieldWidth+15, 485);
-	canvas.fillText("Left: a " , fieldWidth+15, 510);
-	canvas.fillText("Down: s ", fieldWidth+15, 535);	
-	canvas.fillText("Right: d ", fieldWidth+15, 560);
-	canvas.fillText("Shoot: spase ", fieldWidth+15, 585);
-	canvas.fillText("Pause: enter ", fieldWidth+15, 610);	
-	canvas.restore();
 }
 
 function levelTimer(){

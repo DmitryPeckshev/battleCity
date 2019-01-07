@@ -16,14 +16,15 @@ var levelNum = 0;
 var countEnemies = 0;
 var createEnemy = false;
 var enemyCreateDelay = true;
+var freezeEnemies = false;
 
 var playerShots = [];
 var allEnemies = [];
 var enemyShots = [];
 
 var myKills = 0;
-var myLives = 1;
-var killsToWin = 12;
+var myLives = 3;
+var killsToWin = 4;
 var enemiesOnScreen = 8;
 
 var barriers = [1,2,3,9];
@@ -57,13 +58,17 @@ var myTank = {
 	shootTimer: 0,
 	number: 0,
 	nearEnemy: 0,
+	canBrakeConcrete: false,
+	unbreakable: false,
+	armorFrame:1,
 	shoot: function() {
 		var bulletPosition = shootPointFunc(myTank);
 		playerShots.push(Bullet({ 
 			speed: 8,
 			flyDirection: this.direction,
 			x: bulletPosition.x,
-			y: bulletPosition.y
+			y: bulletPosition.y,
+			brakeConcrete: this.canBrakeConcrete,
 		}));	
 	},
 	draw: function() {
@@ -85,6 +90,18 @@ var myTank = {
 		}			
 		canvas.translate(-this.x - this.width/2, -this.y - this.height/2);
 		canvas.drawImage(myTankImg, this.x, this.y);
+
+
+		if(this.unbreakable == true){
+			if(this.armorFrame == 1){
+				canvas.drawImage(armor1Img, this.x, this.y);
+				this.armorFrame = 2;
+			}else if(this.armorFrame == 2){
+				canvas.drawImage(armor2Img, this.x, this.y);
+				this.armorFrame = 1;
+			}
+			
+		}
 		canvas.restore();
 
 	}
@@ -106,7 +123,7 @@ function update() {
 			if(lvlStartY == 0){
 				lvlStartY = -300;
 			}
-		},3000);
+		},4000);
 		countEnemies = 0;
 	}
 	if(levelEnds){
@@ -162,9 +179,46 @@ function update() {
 		return enemy.active;
 	});
 
+	choseBonus();
+
 	if (keydown.t) {
 		launchFullScreen(canvasElement);
 	}
+}
+
+function draw() {
+	canvas.clearRect(0, 0, fieldWidth, fieldHeight);
+	
+	createLevel(currentLevel);
+
+	if(!levelEnds){
+
+		myTank.draw();	
+		
+		playerShots.forEach(function(bullet) {
+			bullet.draw();
+		});
+		
+		allEnemies.forEach(function(enemy) {
+			enemy.draw();
+		});
+
+		headquarters.draw();
+		
+		enemyShots.forEach(function(bullet) {
+			bullet.draw();
+		});
+	
+		createForest(currentLevel);
+
+		drawBonus();
+	}
+
+	createInfo();
+
+	drawPause();
+
+	drawGameOver();
 }
 
 function randomInt(minRandom,maxRandom) {
@@ -546,35 +600,46 @@ function Enemy(I) {
 	I.height = cellSize,
 	I.direction = 'down',
 	I.step = 0,
-	I.speed = 5,
+	I.speed = 4,
 	I.fire = false,
 	I.shootDelay = 15,
 	I.shootTimer = 0,
 	I.go = 'down';
+	I.explosed = false, // анимация использования гранаты
 	
 	I.draw = function() {
 		if(this.active){
-		canvas.save();
-		canvas.translate(this.x + this.width/2, this.y + this.height/2);
-		if(this.direction == 'left'){
-			canvas.rotate(Math.PI/2);
-		}
-		if(this.direction == 'right'){
-			canvas.rotate(-Math.PI/2);
-		}
-		if(this.direction == 'up'){
-			canvas.rotate(Math.PI);
-		}
-		if(this.direction == 'down'){
-			canvas.rotate(Math.PI*2);
-		}			
-		canvas.translate(-this.x - this.width/2, -this.y - this.height/2);
-		canvas.drawImage(enemyImg1, this.x, this.y);
-		canvas.restore();
+			if(this.explosed){
+				canvas.save();
+				canvas.drawImage(explosionImg, this.x, this.y);
+				canvas.restore();
+			}else{
+				canvas.save();
+				canvas.translate(this.x + this.width/2, this.y + this.height/2);
+				if(this.direction == 'left'){
+					canvas.rotate(Math.PI/2);
+				}
+				if(this.direction == 'right'){
+					canvas.rotate(-Math.PI/2);
+				}
+				if(this.direction == 'up'){
+					canvas.rotate(Math.PI);
+				}
+				if(this.direction == 'down'){
+					canvas.rotate(Math.PI*2);
+				}			
+				canvas.translate(-this.x - this.width/2, -this.y - this.height/2);
+				canvas.drawImage(enemyImg1, this.x, this.y);
+				canvas.restore();
+			}
 		}
 	};
 	
 	I.update = function() {		
+		if(freezeEnemies){return;}
+		if(this.explosed){
+			this.active = false;
+		}
 		
 		//if(this.step <= 0 && this.x%(cellSize/2)==0 && this.y%(cellSize/2)==0){ 
 		if (this.go == 'left') {
@@ -621,6 +686,7 @@ function Enemy(I) {
 	};
 	
 	I.shoot = function() {
+		if(freezeEnemies){return;}
 		var bulletPosition = shootPointFunc(this);
 		enemyShots.push(Bullet({ 
 			speed: 8,
@@ -745,6 +811,9 @@ function barriersAndBullets(currentLevel, tankShots) {
 						unbreakable.forEach(function(oneUnbreakable){
 							if(currentLevel[i][j]==oneUnbreakable){
 								if(collide(tryBullet, wallPos)) {
+									if(bullet.brakeConcrete == true){
+										currentLevel[i][j] = 0;
+									}
 									bullet.hit = true;
 								}
 							}
@@ -769,7 +838,6 @@ function killEnemy() {
 				enemy.active = false;
 				bullet.hit = true;
 				myKills++;
-				console.log('kills', myKills);
 			}
 		})
 	})
@@ -782,8 +850,6 @@ function enemyBulletsCollision() {
          		bullet.x + bullet.width +3 > myBullet.x -3 &&
          		bullet.y +3 < myBullet.y + myBullet.height +3 &&
         		bullet.y + bullet.height +3 > myBullet.y -3){
-				//myBullet.active = false;
-				//bullet.active = false;
 				bullet.hit = true;
 				myBullet.hit = true;
 			}
@@ -796,9 +862,11 @@ function enemyBulletsCollision() {
 		if(collide(bullet, myTank)){
 			bullet.hit = true;
 			if(bullet.hit == true && bullet.active == true){
-				myLives--;
-				resetMyTank();
-				console.log('damage', myLives);
+				if(!myTank.unbreakable){
+					myLives--;
+					myTank.canBrakeConcrete = false;
+					resetMyTank();
+				}
 			}
 			
 		}
@@ -833,6 +901,8 @@ function resetData() {
 	createEnemy = false;
 	enemyCreateDelay = true;
 	startTime = Date.now();
+	bonus.ready = false;
+	bonus.lastPicked = 0;
 }
 function resetMyTank() {
 	myTank.x = 440;
@@ -875,4 +945,107 @@ function launchFullScreen(element) {
 	} else if(element.webkitRequestFullScreen) {
 		element.webkitRequestFullScreen();
 	}
+}
+
+var bonus = {
+	ready: false,
+	x: false,
+	y: false,
+	width: cellSize,
+	height: cellSize,
+	type: false,
+	timeout: 50,
+	lifetime: 10,
+	lastPicked: 0,
+	timePicked: false,
+	fortPicked: false,
+	armorPicked: false,
+};
+
+function choseBonus() {
+	function chooseBonusPlace() {
+		var bonusPlaceX = randomInt(0,currentLevel[0].length-2);
+		var bonusPlaceY = randomInt(0,currentLevel.length-2);
+		if(barriers.indexOf(currentLevel[bonusPlaceY][bonusPlaceX]) == -1 
+			&& barriers.indexOf(currentLevel[bonusPlaceY+1][bonusPlaceX]) == -1
+			&& barriers.indexOf(currentLevel[bonusPlaceY][bonusPlaceX+1]) == -1
+			&& barriers.indexOf(currentLevel[bonusPlaceY+1][bonusPlaceX+1]) == -1){
+			bonus.x = bonusPlaceX * (cellSize/2);
+			bonus.y = bonusPlaceY * (cellSize/2);
+			bonus.ready = true;
+		}else{
+			chooseBonusPlace();
+		}
+	}
+	if(bonus.ready == true){
+		if(Math.round((Date.now()-startTime)/1000) > bonus.lastPicked+bonus.timeout+bonus.lifetime){
+			bonus.ready = false;
+			bonus.lastPicked = Math.round(timer/1000);
+		}
+		if(collide(myTank, bonus)){
+			if(bonus.type == 'life'){
+				myLives += 1;
+			}
+			if(bonus.type == 'time'){
+				freezeEnemies = true;
+				bonus.timePicked = true;
+			}
+			if(bonus.type == 'grenade'){
+				myKills += allEnemies.length;
+				allEnemies.forEach(function(enemy){
+					enemy.explosed = true;		
+				})
+			}
+			if(bonus.type == 'fort'){
+				currentLevel[35][26] = 2;
+				currentLevel[34][26] = 2;
+				currentLevel[33][26] = 2;
+				currentLevel[33][27] = 2;
+				currentLevel[33][28] = 2;
+				currentLevel[33][29] = 2;
+				currentLevel[34][29] = 2;
+				currentLevel[35][29] = 2;
+				bonus.fortPicked = true;
+			}
+			if(bonus.type == 'pistol'){
+				myTank.canBrakeConcrete = true;
+			}
+			if(bonus.type == 'armor'){
+				myTank.unbreakable = true;
+				bonus.armorPicked = true;
+			}
+			bonus.ready = false;
+			bonus.lastPicked = Math.round(timer/1000);
+		}
+	}
+	if(bonus.timePicked == true && Math.round(timer/1000) > bonus.lastPicked + 10){
+		freezeEnemies = false;
+		bonus.timePicked = false;
+	}
+	if(bonus.fortPicked == true && Math.round(timer/1000) > bonus.lastPicked + 30){
+		currentLevel[35][26] = 1;
+		currentLevel[34][26] = 1;
+		currentLevel[33][26] = 1;
+		currentLevel[33][27] = 1;
+		currentLevel[33][28] = 1;
+		currentLevel[33][29] = 1;
+		currentLevel[34][29] = 1;
+		currentLevel[35][29] = 1;
+		bonus.fortPicked = false;
+	}
+	if(bonus.armorPicked == true && Math.round(timer/1000) > bonus.lastPicked + 10){
+		myTank.unbreakable = false;
+		bonus.armorPicked = false;
+	}
+	if(bonus.ready == false && Math.round((Date.now()-startTime)/1000) > bonus.lastPicked+bonus.timeout){
+		chooseBonusPlace();
+		switch(randomInt(1,6)) {
+			case 1: bonus.type = 'life'; break;
+			case 2: bonus.type = 'time'; break;
+			case 3: bonus.type = 'grenade'; break;
+			case 4: bonus.type = 'fort'; break;
+			case 5: bonus.type = 'pistol'; break;
+			case 6: bonus.type = 'armor'; break;
+		}
+	}	
 }

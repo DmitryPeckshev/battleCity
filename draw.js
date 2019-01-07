@@ -3,6 +3,10 @@ var myTankImg = new Image();
 myTankImg.addEventListener("load", function() {},false);
 myTankImg.src = 'img/myTank.png';
 
+var myTank2Img = new Image();
+myTank2Img.addEventListener("load", function() {},false);
+myTank2Img.src = 'img/myTank3.png';
+
 var brickImg = new Image();
 brickImg.addEventListener("load", function() {},false);
 brickImg.src = 'img/brick.png';
@@ -39,38 +43,38 @@ var iceImg = new Image();
 iceImg.addEventListener("load", function() {},false);
 iceImg.src = 'img/ice.jpg';
 
-function draw() {
-	canvas.clearRect(0, 0, fieldWidth, fieldHeight);
-	
-	createLevel(currentLevel);
 
-	if(!levelEnds){
+var bonusLifeImg = new Image();
+bonusLifeImg.addEventListener("load", function() {},false);
+bonusLifeImg.src = 'img/bonus-life.png';
 
-		myTank.draw();	
-		
-		playerShots.forEach(function(bullet) {
-			bullet.draw();
-		});
-		
-		allEnemies.forEach(function(enemy) {
-			enemy.draw();
-		});
+var bonusTimeImg = new Image();
+bonusTimeImg.addEventListener("load", function() {},false);
+bonusTimeImg.src = 'img/bonus-time.png';
 
-		headquarters.draw();
-		
-		enemyShots.forEach(function(bullet) {
-			bullet.draw();
-		});
-	}
+var bonusGrenadeImg = new Image();
+bonusGrenadeImg.addEventListener("load", function() {},false);
+bonusGrenadeImg.src = 'img/bonus-grenade.png';
 
-	createForest(currentLevel);
+var bonusFortImg = new Image();
+bonusFortImg.addEventListener("load", function() {},false);
+bonusFortImg.src = 'img/bonus-fort.png';
 
-	createInfo();
+var bonusPistolImg = new Image();
+bonusPistolImg.addEventListener("load", function() {},false);
+bonusPistolImg.src = 'img/bonus-pistol.png';
 
-	drawPause();
+var bonusArmorImg = new Image();
+bonusArmorImg.addEventListener("load", function() {},false);
+bonusArmorImg.src = 'img/bonus-armor.png';
 
-	drawGameOver();
-}
+var armor1Img = new Image();
+armor1Img.addEventListener("load", function() {},false);
+armor1Img.src = 'img/armor1.png';
+
+var armor2Img = new Image();
+armor2Img.addEventListener("load", function() {},false);
+armor2Img.src = 'img/armor2.png';
 
 function createLevel(levelNum) {
 	for(var i = 0; i < levelNum.length;i++) {
@@ -176,4 +180,19 @@ function createInfo() {
 	canvas.fillText("Shoot: spase ", fieldWidth+15, 585);
 	canvas.fillText("Pause: enter ", fieldWidth+15, 610);	
 	canvas.restore();
+}
+
+function drawBonus() {
+	if(bonus.ready){
+		canvas.save();
+		switch(bonus.type) {
+			case 'life': canvas.drawImage(bonusLifeImg, bonus.x, bonus.y ,cellSize, cellSize); break;
+			case 'time': canvas.drawImage(bonusTimeImg, bonus.x, bonus.y ,cellSize, cellSize); break;
+			case 'grenade': canvas.drawImage(bonusGrenadeImg, bonus.x, bonus.y ,cellSize, cellSize); break;
+			case 'fort': canvas.drawImage(bonusFortImg, bonus.x, bonus.y ,cellSize, cellSize); break;
+			case 'pistol': canvas.drawImage(bonusPistolImg, bonus.x, bonus.y ,cellSize, cellSize); break;
+			case 'armor': canvas.drawImage(bonusArmorImg, bonus.x, bonus.y ,cellSize, cellSize); break;
+		}
+		canvas.restore();
+	}
 }

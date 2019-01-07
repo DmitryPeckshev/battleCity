@@ -24,8 +24,9 @@ var enemyShots = [];
 
 var myKills = 0;
 var myLives = 3;
-var killsToWin = 4;
+var killsToWin = 20;
 var enemiesOnScreen = 8;
+var killsSum = 0;
 
 var barriers = [1,2,3,9];
 var breakable = [1];
@@ -54,10 +55,11 @@ var myTank = {
 	direction: 'up',
 	speed: 4, // возможные значения только 4 и 5
 	step: 0,
-	shootDelay: 15,
+	shootDelay: 20,
 	shootTimer: 0,
 	number: 0,
 	nearEnemy: 0,
+	star: 0,
 	canBrakeConcrete: false,
 	unbreakable: false,
 	armorFrame:1,
@@ -87,9 +89,17 @@ var myTank = {
 		}
 		if(this.direction == 'down'){
 			canvas.rotate(Math.PI*2);
-		}			
+		}
 		canvas.translate(-this.x - this.width/2, -this.y - this.height/2);
-		canvas.drawImage(myTankImg, this.x, this.y);
+		if(this.star == 1){
+			canvas.drawImage(myTank2Img, this.x, this.y);
+		}else if(this.star == 2){
+			canvas.drawImage(myTank3Img, this.x, this.y);
+		}else if(this.star > 2){
+			canvas.drawImage(myTank4Img, this.x, this.y);
+		}else{			
+			canvas.drawImage(myTankImg, this.x, this.y);
+		}
 
 
 		if(this.unbreakable == true){
@@ -552,7 +562,7 @@ function Bullet(I) {
 function shootPointFunc(tank) {
 	if(tank.direction == 'left'){
 		return {
-			x: tank.x,
+			x: tank.x-1,
  			y: tank.y + tank.height/2 - cellSize/20
 		};
 	}
@@ -565,7 +575,7 @@ function shootPointFunc(tank) {
 	if(tank.direction == 'up'){
 		return {
 			x: tank.x + tank.width/2 - cellSize/20,
- 			y: tank.y
+ 			y: tank.y-1
 		};
 	}
 	if(tank.direction == 'down'){
@@ -600,9 +610,7 @@ function Enemy(I) {
 	I.height = cellSize,
 	I.direction = 'down',
 	I.step = 0,
-	I.speed = 4,
 	I.fire = false,
-	I.shootDelay = 15,
 	I.shootTimer = 0,
 	I.go = 'down';
 	I.explosed = false, // анимация использования гранаты
@@ -629,7 +637,15 @@ function Enemy(I) {
 					canvas.rotate(Math.PI*2);
 				}			
 				canvas.translate(-this.x - this.width/2, -this.y - this.height/2);
-				canvas.drawImage(enemyImg1, this.x, this.y);
+				if(this.type == 1){
+					canvas.drawImage(enemyImg1, this.x, this.y);
+				}else if(this.type == 2){
+					canvas.drawImage(enemyImg2, this.x, this.y);
+				}else if(this.type == 3){
+					canvas.drawImage(enemyImg3, this.x, this.y);
+				}else if(this.type == 4){
+					canvas.drawImage(enemyImg4, this.x, this.y);
+				}
 				canvas.restore();
 			}
 		}
@@ -712,7 +728,7 @@ function addEnemy() {
 		}
 		if(respawnBusy == false && createEnemy) {
 			if( myKills+allEnemies.length < killsToWin) {
-				allEnemies.push(Enemy({number: countEnemies+=1}))
+				pushEnemy();
 			}
 			createEnemy = false;
 			enemyCreateDelay = true;
@@ -835,9 +851,13 @@ function killEnemy() {
 	allEnemies.forEach(function(enemy){
 		playerShots.forEach(function(bullet){
 			if(collide(enemy,bullet)){
-				enemy.active = false;
+				enemy.lives -= 1;
+				if(enemy.lives < 1){
+					enemy.active = false;
+					myKills++;
+					killsSum++;
+				}
 				bullet.hit = true;
-				myKills++;
 			}
 		})
 	})
@@ -864,13 +884,13 @@ function enemyBulletsCollision() {
 			if(bullet.hit == true && bullet.active == true){
 				if(!myTank.unbreakable){
 					myLives--;
+					myTank.star = 0;
+					myTank.shootDelay = 20;
 					myTank.canBrakeConcrete = false;
 					resetMyTank();
 				}
 			}
-			
 		}
-		
 	})
 }
 
@@ -954,9 +974,11 @@ var bonus = {
 	width: cellSize,
 	height: cellSize,
 	type: false,
-	timeout: 50,
 	lifetime: 10,
+	killsToDrop: 8,
 	lastPicked: 0,
+	lastDropTime: 0,
+	lastDropEnemies: 0,
 	timePicked: false,
 	fortPicked: false,
 	armorPicked: false,
@@ -978,7 +1000,7 @@ function choseBonus() {
 		}
 	}
 	if(bonus.ready == true){
-		if(Math.round((Date.now()-startTime)/1000) > bonus.lastPicked+bonus.timeout+bonus.lifetime){
+		if(Math.round((Date.now()-startTime)/1000) > bonus.lastDropTime+bonus.lifetime){
 			bonus.ready = false;
 			bonus.lastPicked = Math.round(timer/1000);
 		}
@@ -992,6 +1014,7 @@ function choseBonus() {
 			}
 			if(bonus.type == 'grenade'){
 				myKills += allEnemies.length;
+				killsSum += allEnemies.length;
 				allEnemies.forEach(function(enemy){
 					enemy.explosed = true;		
 				})
@@ -1007,12 +1030,19 @@ function choseBonus() {
 				currentLevel[35][29] = 2;
 				bonus.fortPicked = true;
 			}
-			if(bonus.type == 'pistol'){
-				myTank.canBrakeConcrete = true;
-			}
 			if(bonus.type == 'armor'){
 				myTank.unbreakable = true;
 				bonus.armorPicked = true;
+			}
+			if(bonus.type == 'star'){
+				myTank.star += 1;
+				if(myTank.star == 1){
+					myTank.shootDelay = 17;
+				}else if(myTank.star == 2){
+					myTank.shootDelay = 14;
+				}else if(myTank.star > 2){
+					myTank.canBrakeConcrete = true;
+				}
 			}
 			bonus.ready = false;
 			bonus.lastPicked = Math.round(timer/1000);
@@ -1037,15 +1067,56 @@ function choseBonus() {
 		myTank.unbreakable = false;
 		bonus.armorPicked = false;
 	}
-	if(bonus.ready == false && Math.round((Date.now()-startTime)/1000) > bonus.lastPicked+bonus.timeout){
+	if(bonus.ready == false && killsSum % bonus.killsToDrop == 0 && bonus.lastDropEnemies != killsSum){
 		chooseBonusPlace();
-		switch(randomInt(1,6)) {
+		switch(randomInt(6,6)) {
 			case 1: bonus.type = 'life'; break;
 			case 2: bonus.type = 'time'; break;
 			case 3: bonus.type = 'grenade'; break;
 			case 4: bonus.type = 'fort'; break;
-			case 5: bonus.type = 'pistol'; break;
-			case 6: bonus.type = 'armor'; break;
+			case 5: bonus.type = 'armor'; break;
+			case 6: bonus.type = 'star'; break;
 		}
+		bonus.lastDropEnemies = killsSum;
+		bonus.lastDropTime = Math.round(timer/1000);
 	}	
+}
+
+function pushEnemy(){
+
+	var type = 1;
+
+	if(type == 1){ // обычный танк
+		allEnemies.push(Enemy({
+			type: type,
+			lives: 1,
+			speed: 4,
+			shootDelay: 20,
+			number: countEnemies+=1,
+		}));
+	}else if(type == 2){ // быстрый танк
+		allEnemies.push(Enemy({
+			type: type,
+			lives: 1,
+			speed: 5,
+			shootDelay: 17,
+			number: countEnemies+=1,
+		}));
+	}else if(type == 3){ // средний танк
+		allEnemies.push(Enemy({
+			type: type,
+			lives: 2,
+			speed: 4,
+			shootDelay: 15,
+			number: countEnemies+=1,
+		}));
+	}else if(type == 4){ // тяжелый танк
+		allEnemies.push(Enemy({
+			type: type,
+			lives: 4,
+			speed: 4,
+			shootDelay: 14,
+			number: countEnemies+=1,
+		}));
+	}
 }

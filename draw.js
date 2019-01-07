@@ -5,7 +5,15 @@ myTankImg.src = 'img/myTank.png';
 
 var myTank2Img = new Image();
 myTank2Img.addEventListener("load", function() {},false);
-myTank2Img.src = 'img/myTank3.png';
+myTank2Img.src = 'img/myTank2.png';
+
+var myTank3Img = new Image();
+myTank3Img.addEventListener("load", function() {},false);
+myTank3Img.src = 'img/myTank3.png';
+
+var myTank4Img = new Image();
+myTank4Img.addEventListener("load", function() {},false);
+myTank4Img.src = 'img/myTank4.png';
 
 var brickImg = new Image();
 brickImg.addEventListener("load", function() {},false);
@@ -18,6 +26,18 @@ concreteImg.src = 'img/concrete.png';
 var enemyImg1 = new Image();
 enemyImg1.addEventListener("load", function() {},false);
 enemyImg1.src = 'img/enemy1.png';
+
+var enemyImg2 = new Image();
+enemyImg2.addEventListener("load", function() {},false);
+enemyImg2.src = 'img/enemy2.png';
+
+var enemyImg3 = new Image();
+enemyImg3.addEventListener("load", function() {},false);
+enemyImg3.src = 'img/enemy3.png';
+
+var enemyImg4 = new Image();
+enemyImg4.addEventListener("load", function() {},false);
+enemyImg4.src = 'img/enemy4.png';
 
 var explosionImg = new Image();
 explosionImg.addEventListener("load", function() {},false);
@@ -60,13 +80,13 @@ var bonusFortImg = new Image();
 bonusFortImg.addEventListener("load", function() {},false);
 bonusFortImg.src = 'img/bonus-fort.png';
 
-var bonusPistolImg = new Image();
-bonusPistolImg.addEventListener("load", function() {},false);
-bonusPistolImg.src = 'img/bonus-pistol.png';
-
 var bonusArmorImg = new Image();
 bonusArmorImg.addEventListener("load", function() {},false);
 bonusArmorImg.src = 'img/bonus-armor.png';
+
+var bonusStarImg = new Image();
+bonusStarImg.addEventListener("load", function() {},false);
+bonusStarImg.src = 'img/bonus-star.png';
 
 var armor1Img = new Image();
 armor1Img.addEventListener("load", function() {},false);
@@ -168,17 +188,18 @@ function createInfo() {
 	canvas.fillText("Level: " + levelNum, fieldWidth+15, 35);
 	canvas.font = 'bold 16px sans-serif';
 	canvas.fillText("Lives:  " + (myLives>0?myLives:0), fieldWidth+15, 85);
-	canvas.fillText("Kills:  " + myKills, fieldWidth+15, 120);
+	canvas.fillText("Enemies:  " + (killsToWin-myKills), fieldWidth+15, 120);
 	canvas.fillText("Time:  " + levelTimer(), fieldWidth+15, 155);
+	canvas.fillText("Kills:  " + killsSum, fieldWidth+15, 190);
 	canvas.font = 'bold 18px sans-serif';
-	canvas.fillText("Controls:  ", fieldWidth+25, 457);
+	canvas.fillText("Controls:  ", fieldWidth+25, 537);
 	canvas.font = 'bold 14px sans-serif';
-	canvas.fillText("Up: w ", fieldWidth+15, 485);
-	canvas.fillText("Left: a " , fieldWidth+15, 510);
-	canvas.fillText("Down: s ", fieldWidth+15, 535);	
-	canvas.fillText("Right: d ", fieldWidth+15, 560);
-	canvas.fillText("Shoot: spase ", fieldWidth+15, 585);
-	canvas.fillText("Pause: enter ", fieldWidth+15, 610);	
+	canvas.fillText("Up: w ", fieldWidth+15, 565);
+	canvas.fillText("Left: a " , fieldWidth+15, 590);
+	canvas.fillText("Down: s ", fieldWidth+15, 615);	
+	canvas.fillText("Right: d ", fieldWidth+15, 640);
+	canvas.fillText("Shoot: spase ", fieldWidth+15, 665);
+	canvas.fillText("Pause: enter ", fieldWidth+15, 690);	
 	canvas.restore();
 }
 
@@ -190,8 +211,8 @@ function drawBonus() {
 			case 'time': canvas.drawImage(bonusTimeImg, bonus.x, bonus.y ,cellSize, cellSize); break;
 			case 'grenade': canvas.drawImage(bonusGrenadeImg, bonus.x, bonus.y ,cellSize, cellSize); break;
 			case 'fort': canvas.drawImage(bonusFortImg, bonus.x, bonus.y ,cellSize, cellSize); break;
-			case 'pistol': canvas.drawImage(bonusPistolImg, bonus.x, bonus.y ,cellSize, cellSize); break;
 			case 'armor': canvas.drawImage(bonusArmorImg, bonus.x, bonus.y ,cellSize, cellSize); break;
+			case 'star': canvas.drawImage(bonusStarImg, bonus.x, bonus.y ,cellSize, cellSize); break;	
 		}
 		canvas.restore();
 	}

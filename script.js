@@ -11,8 +11,8 @@ var infoWidth = 160;
 var infoHeight = 720;
 var cellSize = 40;
 
-var currentLevel = false;
 var levelNum = 0;
+var currentLevel = false;
 var countEnemies = 0;
 var createEnemy = false;
 var enemyCreateDelay = true;
@@ -22,11 +22,12 @@ var playerShots = [];
 var allEnemies = [];
 var enemyShots = [];
 
-var myKills = 0;
 var myLives = 3;
 var killsToWin = 20;
-var enemiesOnScreen = 8;
+var enemiesOnScreen = 4;
+var myKills = 0;
 var killsSum = 0;
+var enemiesCreated = 0;
 
 var barriers = [1,2,3,9];
 var breakable = [1];
@@ -34,6 +35,7 @@ var unbreakable = [2];
 
 var levelEnds = true;
 var isPause = true;
+var victory = false;
 var lvlStartY = -300;
 var gameOverStartY = -300;
 var startTime = Date.now();
@@ -63,6 +65,7 @@ var myTank = {
 	canBrakeConcrete: false,
 	unbreakable: false,
 	armorFrame:1,
+	resetTime: Date.now(),
 	shoot: function() {
 		var bulletPosition = shootPointFunc(myTank);
 		playerShots.push(Bullet({ 
@@ -100,8 +103,6 @@ var myTank = {
 		}else{			
 			canvas.drawImage(myTankImg, this.x, this.y);
 		}
-
-
 		if(this.unbreakable == true){
 			if(this.armorFrame == 1){
 				canvas.drawImage(armor1Img, this.x, this.y);
@@ -110,10 +111,8 @@ var myTank = {
 				canvas.drawImage(armor2Img, this.x, this.y);
 				this.armorFrame = 1;
 			}
-			
 		}
 		canvas.restore();
-
 	}
 }
 
@@ -127,14 +126,24 @@ function update() {
 		return;
 	}
 
+	if(victory){
+		return;
+	}
+
 	if(myKills >= killsToWin && !levelEnds && countEnemies !=0){
-		setTimeout(function(){
-			levelEnds = true;
-			if(lvlStartY == 0){
-				lvlStartY = -300;
-			}
-		},4000);
-		countEnemies = 0;
+		if(levels.length-1 <= levelNum ){ // уровни закончились
+			setTimeout(function(){
+				victory = true;
+			},4000);
+		}else{
+			setTimeout(function(){ // задержка перед сменой уровня
+				if(lvlStartY == 0){
+					lvlStartY = -300;
+				}
+				levelEnds = true;
+			},4000);
+			countEnemies = 0;
+		}
 	}
 	if(levelEnds){
 		if(lvlStartY != 0){
@@ -228,7 +237,12 @@ function draw() {
 
 	drawPause();
 
-	drawGameOver();
+	if(myLives < 0){
+		drawGameOver();
+	}
+	if(victory){
+		drawYouWin();
+	}
 }
 
 function randomInt(minRandom,maxRandom) {
@@ -547,11 +561,8 @@ function Bullet(I) {
  			I.y += I.speed;
 		}
 		
-		//I.active = I.active && I.inBounds();
-		
 		I.active = !I.hit;
-		I.hit = !I.inBounds();
-		
+		I.hit = !I.inBounds();	
 		
 	};
 	
@@ -656,49 +667,22 @@ function Enemy(I) {
 		if(this.explosed){
 			this.active = false;
 		}
-		
-		//if(this.step <= 0 && this.x%(cellSize/2)==0 && this.y%(cellSize/2)==0){ 
 		if (this.go == 'left') {
 			this.x -= this.speed;
 			this.direction = 'left';
-			//this.step = cellSize/10;
 		}
 		if (this.go == 'right') {
 			this.x += this.speed;
 			this.direction = 'right';
-			//this.step = cellSize/10;
 		}
 		if (this.go == 'up') {
     		this.y -= this.speed;
     		this.direction = 'up';
-    		//this.step = cellSize/10;
 		}
 		if (this.go == 'down') {
 			this.y += this.speed;
 			this.direction = 'down';
-			//this.step = cellSize/10;
-		}
-
-	/*} else {
-		
-		if (this.direction == 'left') {
-			this.x -= this.speed;
-		}
-		if (this.direction == 'right') {
-			this.x += this.speed;
-		}
-		if (this.direction == 'up') {
-    		this.y -= this.speed;
-		}
-		if (this.direction == 'down') {
-			this.y += this.speed;
-		}
-		this.step -= 1;
-	}*/
-		
-		
-		
-		
+		}		
 	};
 	
 	I.shoot = function() {
@@ -718,7 +702,12 @@ function addEnemy() {
 	if (allEnemies.length < enemiesOnScreen) { //занести врага в массив
 		var respawnBusy = false;
 		allEnemies.forEach(function(enemy) {
-			if(enemy.y < cellSize) {
+			if(enemy.y < cellSize  // точка респауна занята
+				&& ((enemy.x > 0 && enemy.x < 0 + cellSize) || 
+				(enemy.x > 360 && enemy.x < 360 + cellSize) ||
+				(enemy.x > 720 && enemy.x < 720 + cellSize) ||
+				(enemy.x > 1080 && enemy.x < 1080 + cellSize))) 
+			{
 				respawnBusy = true;
 			}
 		});
@@ -728,7 +717,7 @@ function addEnemy() {
 		}
 		if(respawnBusy == false && createEnemy) {
 			if( myKills+allEnemies.length < killsToWin) {
-				pushEnemy();
+				enemyLineup();
 			}
 			createEnemy = false;
 			enemyCreateDelay = true;
@@ -920,6 +909,7 @@ function resetData() {
 	countEnemies = 0;
 	createEnemy = false;
 	enemyCreateDelay = true;
+	enemiesCreated = 0;
 	startTime = Date.now();
 	bonus.ready = false;
 	bonus.lastPicked = 0;
@@ -929,6 +919,10 @@ function resetMyTank() {
 	myTank.y = 640;
 	myTank.step = 0;
 	myTank.direction = 'up';
+	if(myLives >= 0){
+		myTank.unbreakable = true;
+	}
+	myTank.resetTime = Math.round(timer/1000);
 }
 
 function pause() {
@@ -949,6 +943,7 @@ function levelTimer(){
 	var mins = Math.floor(diffTime / 60);
 	diffTime = diffTime - mins*60;
 	if(levelEnds){
+		timer = 0;
 		return '0 : 00';
 	}else{
 		return mins+' : '+(diffTime<10?'0':'')+diffTime;
@@ -1066,10 +1061,17 @@ function choseBonus() {
 	if(bonus.armorPicked == true && Math.round(timer/1000) > bonus.lastPicked + 10){
 		myTank.unbreakable = false;
 		bonus.armorPicked = false;
+	}else{
+		// временная броня после потери жизни или в начале уровня 
+		if(myTank.unbreakable && bonus.armorPicked == false){
+			if(myTank.resetTime + 6 < Math.round(timer/1000)){
+				myTank.unbreakable = false;
+			}
+		}
 	}
 	if(bonus.ready == false && killsSum % bonus.killsToDrop == 0 && bonus.lastDropEnemies != killsSum){
 		chooseBonusPlace();
-		switch(randomInt(6,6)) {
+		switch(randomInt(1,6)) {
 			case 1: bonus.type = 'life'; break;
 			case 2: bonus.type = 'time'; break;
 			case 3: bonus.type = 'grenade'; break;
@@ -1082,10 +1084,7 @@ function choseBonus() {
 	}	
 }
 
-function pushEnemy(){
-
-	var type = 1;
-
+function pushEnemy(type){
 	if(type == 1){ // обычный танк
 		allEnemies.push(Enemy({
 			type: type,

@@ -140,22 +140,20 @@ function createForest(levelNum) {
 }
 
 function drawGameOver() {
-	if(myLives < 0){
-		canvas.save();
-		canvas.fillStyle = "rgba(50,50,50,0.8)";
-		canvas.fillRect(0, 0, fieldWidth+infoWidth, infoHeight);
-		canvas.restore();
-		if(gameOverStartY >= -300 && gameOverStartY < -6){
-			gameOverStartY += 6;
-		}
-		for(var i = 0; i < gameOverPrint.length;i++) {
-			for(var j = 0; j < gameOverPrint[i].length;j++) {
-				canvas.save();
-				if(gameOverPrint[i][j]==1){
-					canvas.drawImage(brickImg, j*cellSize/2, i*cellSize/2 + gameOverStartY,cellSize/2,cellSize/2);
-				}
-				canvas.restore();
+	canvas.save();
+	canvas.fillStyle = "rgba(50,50,50,0.8)";
+	canvas.fillRect(0, 0, fieldWidth+infoWidth, infoHeight);
+	canvas.restore();
+	if(gameOverStartY >= -300 && gameOverStartY < -6){
+		gameOverStartY += 6;
+	}
+	for(var i = 0; i < gameOverPrint.length;i++) {
+		for(var j = 0; j < gameOverPrint[i].length;j++) {
+			canvas.save();
+			if(gameOverPrint[i][j]==1){
+				canvas.drawImage(brickImg, j*cellSize/2, i*cellSize/2 + gameOverStartY,cellSize/2,cellSize/2);
 			}
+			canvas.restore();
 		}
 	}
 }
@@ -174,6 +172,25 @@ function drawPause() {
 				}
 				canvas.restore();
 			}
+		}
+	}
+}
+
+function drawYouWin() {
+	canvas.save();
+	canvas.fillStyle = "rgba(50,50,50,0.8)";
+	canvas.fillRect(0, 0, fieldWidth+infoWidth, infoHeight);
+	canvas.restore();
+	if(gameOverStartY >= -300 && gameOverStartY < -6){
+		gameOverStartY += 6;
+	}
+	for(var i = 0; i < youWin.length;i++) {
+		for(var j = 0; j < youWin[i].length;j++) {
+			canvas.save();
+			if(youWin[i][j]==1){
+				canvas.drawImage(brickImg, j*cellSize/2, i*cellSize/2 + gameOverStartY,cellSize/2,cellSize/2);
+			}
+			canvas.restore();
 		}
 	}
 }
@@ -216,4 +233,109 @@ function drawBonus() {
 		}
 		canvas.restore();
 	}
+}
+
+// порядок появления разных видов противников
+function enemyLineup() {
+	enemiesCreated++;
+	var enemyType = 1;
+	if(levelNum == 1){
+		if([6,7,12,13,19,20].indexOf(enemiesCreated) > -1){
+			enemyType = 2;
+		}
+		killsToWin = 20;
+		enemiesOnScreen = 4;
+	}
+	if(levelNum == 2){
+		if([4,5,10,11,15,16].indexOf(enemiesCreated) > -1){
+			enemyType = 2;
+		}
+		if([19,20].indexOf(enemiesCreated) > -1){
+			enemyType = 3;
+		}
+	}
+	if(levelNum == 3){
+		if([3,5,7,11,17].indexOf(enemiesCreated) > -1){
+			enemyType = 2;
+		}
+		if([9,15,19,20].indexOf(enemiesCreated) > -1){
+			enemyType = 3;
+		}
+	}
+	if(levelNum == 4){
+		if([3,4,8,10,17,19].indexOf(enemiesCreated) > -1){
+			enemyType = 2;
+		}
+		if([6,12,14,16,20].indexOf(enemiesCreated) > -1){
+			enemyType = 3;
+		}
+		enemiesOnScreen = 5;
+	}
+	if(levelNum == 5){
+		if([3,5,7,11,17,21].indexOf(enemiesCreated) > -1){
+			enemyType = 2;
+		}
+		if([9,15,19,23,25].indexOf(enemiesCreated) > -1){
+			enemyType = 3;
+		}
+		killsToWin = 25;
+	}
+	if(levelNum == 6){
+		if([4,8,12,16].indexOf(enemiesCreated) > -1){
+			enemyType = 2;
+		}
+		if([3,7,11,15].indexOf(enemiesCreated) > -1){
+			enemyType = 3;
+		}
+		if([24,25].indexOf(enemiesCreated) > -1){
+			enemyType = 4;
+		}
+	}
+	if(levelNum == 7){
+		if([4,5,6,7,17,18,19,20].indexOf(enemiesCreated) > -1){
+			enemyType = 2;
+		}
+		if([10,11,12,13].indexOf(enemiesCreated) > -1){
+			enemyType = 3;
+		}
+		if([21,23,25].indexOf(enemiesCreated) > -1){
+			enemyType = 4;
+		}
+		enemiesOnScreen = 6;
+	}
+	if(levelNum == 8){
+		if([2,3,11,12,13,14,15].indexOf(enemiesCreated) > -1){
+			enemyType = 2;
+		}
+		if([7,8,9,19,20].indexOf(enemiesCreated) > -1){
+			enemyType = 3;
+		}
+		if([21,23,25].indexOf(enemiesCreated) > -1){
+			enemyType = 4;
+		}
+	}
+	if(levelNum == 9){
+		if([4,5,7,8,19,26,27].indexOf(enemiesCreated) > -1){
+			enemyType = 2;
+		}
+		if([2,6,16,20,24].indexOf(enemiesCreated) > -1){
+			enemyType = 3;
+		}
+		if([12,18,28,29,30].indexOf(enemiesCreated) > -1){
+			enemyType = 4;
+		}
+		killsToWin = 30;
+	}
+	if(levelNum == 10){
+		if([2,5,6,7,14,18,19].indexOf(enemiesCreated) > -1){
+			enemyType = 2;
+		}
+		if([7,8,15,16,20,21,22,23,24].indexOf(enemiesCreated) > -1){
+			enemyType = 3;
+		}
+		if([11,12,25,26,27,28,29,30].indexOf(enemiesCreated) > -1){
+			enemyType = 4;
+		}
+	}
+	pushEnemy(enemyType);
 }
